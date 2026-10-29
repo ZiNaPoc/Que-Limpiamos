@@ -126,6 +126,7 @@ INSTRUCCIONES DE INSTALACIÓN
 git clone URL
 cd Que-Limpiamos
 cd appWeb
+git pull
 npm install
 npm run dev
 cd ..
