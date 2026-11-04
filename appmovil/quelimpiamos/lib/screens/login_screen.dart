@@ -38,11 +38,10 @@ class _LoginScreenState extends State<LoginScreen> {
       resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
-          // Fondo
           Positioned.fill(
             child: Image.asset(
               'assets/images/fondo2.png',
-              fit: BoxFit.fill,
+              fit: BoxFit.cover,
               errorBuilder: (context, error, stack) {
                 return Container(color: Colors.red);
               },
