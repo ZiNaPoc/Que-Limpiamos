@@ -1,17 +1,5 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
-
-// import 'home_screen.dart'; // <- cuando tengas tu HomeScreen
-
-// pubspec.yaml:
-//   flutter:
-//     assets:
-//       - assets/images/
-//
-// Imágenes que necesitas en assets/images/:
-//   fondo.png  -> la página completa (manchas + rayitas), SIN logo ni texto
-//   logo.png   -> el logo de la escoba (PNG con fondo transparente)
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
