@@ -18,10 +18,6 @@ function SeccionDePortada({ onAcceder, onIrASeccion }: AccionesDeLaLanding) {
 
       <div className="relative mx-auto grid max-w-6xl items-center gap-16 lg:grid-cols-12">
         <div className="lg:col-span-7">
-          <p className="rise inline-flex items-center gap-2 rounded-full bg-white px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-lagoon shadow-card">
-            <span className="h-2 w-2 rounded-full bg-moss" aria-hidden />
-            Limpieza en Cancún
-          </p>
           <h1 className="rise mt-8 text-6xl font-extrabold leading-[0.95] text-navy sm:text-8xl" style={{ animationDelay: "80ms" }}>
             ¿Qué
             <span className="ml-10 block text-lagoon sm:ml-24">limpiamos?</span>
