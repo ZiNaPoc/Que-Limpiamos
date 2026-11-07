@@ -2,7 +2,7 @@ import { useState, type FocusEvent } from "react";
 import { useAtrapaFoco } from "../hooks/useAtrapaFoco";
 import type { Sesion, VistaDelPanel } from "../data/tipos";
 import { Icono, type NombreDeIcono } from "./comunes/Icono";
-import { Logotipo } from "./comunes/FormasOrganicas";
+import { Logotipo, TituloDeMarca } from "./comunes/FormasOrganicas";
 
 const OPCIONES_DE_NAVEGACION: { idDeVista: VistaDelPanel; etiqueta: string; icono: NombreDeIcono }[] = [
   { idDeVista: "inicio", etiqueta: "Inicio", icono: "inicio" },
@@ -122,12 +122,11 @@ export function MenuLateral({ sesion, vistaActiva, esCompacto, cajonAbierto, onN
 
       <div className="relative flex h-12 items-center">
         <div className="shrink-0 pl-0.5">
-          <Logotipo claro mostrarTexto={false} />
+          <Logotipo claro />
         </div>
-        <span aria-hidden className={`ml-3 whitespace-nowrap font-display text-lg font-extrabold leading-[1.05] transition duration-300 ease-soft ${claseDeLaEtiqueta}`}>
-          ¿Qué
-          <span className="ml-3 block">limpiamos?</span>
-        </span>
+          <span aria-hidden className={`ml-3 whitespace-nowrap transition duration-300 ease-soft ${claseDeLaEtiqueta}`}>
+            <TituloDeMarca className="h-12 w-auto" />
+          </span>
         {!esCompacto && (
           <button onClick={onCerrarCajon} aria-label="Cerrar menú" className="ml-auto grid h-10 w-10 cursor-pointer place-items-center rounded-full text-sky transition duration-300 hover:bg-white/10">
             <Icono nombre="cerrar" />

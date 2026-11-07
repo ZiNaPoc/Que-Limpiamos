@@ -1,7 +1,7 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { ENLACE_DE_DESCARGA, IMAGENES } from "../data/configuracion";
 import { AparecerAlDesplazar } from "../components/comunes/AparecerAlDesplazar";
-import { FormaOrganica, OlaDivisoria } from "../components/comunes/FormasOrganicas";
+import { FormaOrganica, OlaDivisoria, TituloDeMarca } from "../components/comunes/FormasOrganicas";
 import { Icono } from "../components/comunes/Icono";
 import { ImagenOIlustracion, type NombreDeIlustracion } from "../components/comunes/Ilustraciones";
 
@@ -18,9 +18,8 @@ function SeccionDePortada({ onAcceder, onIrASeccion }: AccionesDeLaLanding) {
 
       <div className="relative mx-auto grid max-w-6xl items-center gap-16 lg:grid-cols-12">
         <div className="lg:col-span-7">
-          <h1 className="rise mt-8 text-6xl font-extrabold leading-[0.95] text-navy sm:text-8xl" style={{ animationDelay: "80ms" }}>
-            ¿Qué
-            <span className="ml-10 block text-lagoon sm:ml-24">limpiamos?</span>
+          <h1 className="rise mt-4" style={{ animationDelay: "80ms" }}>
+            <TituloDeMarca className="w-full max-w-xl" />
           </h1>
           <p className="rise mt-8 max-w-md text-lg leading-relaxed text-slate" style={{ animationDelay: "180ms" }}>
             Un sitio web que agiliza el trabajo de contratar y gestionar servicios de limpieza: claro, con precio estimado y con personas de confianza.

@@ -15,6 +15,11 @@ export const IMAGENES = {
   rotacionDeAcceso: ["", ""],
 };
 
+export const MARCA = {
+  logo: "/logo.png",
+  titulo: "/titulo.png",
+};
+
 export const ENLACE_DE_DESCARGA: string = "";
 
 export const CUENTA_DE_DEMOSTRACION = {

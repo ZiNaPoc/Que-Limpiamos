@@ -1,3 +1,5 @@
+import { MARCA } from "../../data/configuracion";
+
 export function FormaOrganica({ className = "" }: { className?: string }) {
   return (
     <svg viewBox="-100 -100 200 200" className={`pointer-events-none absolute ${className}`} aria-hidden>
@@ -23,26 +25,14 @@ export function OlasDeFondo({ className = "" }: { className?: string }) {
   );
 }
 
-export function Logotipo({ claro = false, mostrarTexto = true }: { claro?: boolean; mostrarTexto?: boolean }) {
-  let colorDelTexto = "text-navy";
-  let claseDelSimbolo = "bg-navy text-moss";
-  if (claro) {
-    colorDelTexto = "text-moon";
-    claseDelSimbolo = "bg-moss text-oxford";
-  }
+export function Logotipo() {
   return (
-    <span className="flex items-center gap-3">
-      <span className={`pebble grid h-11 w-11 shrink-0 place-items-center ${claseDelSimbolo}`} aria-hidden>
-        <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor">
-          <path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8zM19 14l.9 2.6 2.6.9-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9z" />
-        </svg>
-      </span>
-      {mostrarTexto && (
-        <span className={`font-display text-lg font-extrabold leading-[1.05] ${colorDelTexto}`}>
-          ¿Qué
-          <span className="ml-3 block">limpiamos?</span>
-        </span>
-      )}
+    <span className="inline-flex shrink-0">
+      <img src={MARCA.logo} alt="Logotipo de ¿Qué limpiamos?" className="h-12 w-auto" />
     </span>
   );
+}
+
+export function TituloDeMarca({ className = "" }: { className?: string }) {
+  return <img src={MARCA.titulo} alt="¿Qué limpiamos?" className={className} />;
 }
