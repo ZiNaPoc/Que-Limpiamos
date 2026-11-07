@@ -14,9 +14,9 @@ export function crearReportesDeDemostracion(solicitudes: Solicitud[]): Reporte[]
   return [
     {
       folio: "R-09",
-      idDeSolicitud: "S-1036",
+      idDeSolicitud: "S-1034",
       descripcion: "Al terminar me comentaron un cobro mayor al precio estimado que aparecía en la solicitud. Quiero saber cuál es el monto correcto.",
-      fechaDeCreacion: horasDespuesDelServicio(solicitudes, "S-1036", 3),
+      fechaDeCreacion: horasDespuesDelServicio(solicitudes, "S-1034", 3),
       estado: "Resuelto",
       solucion: "Se aclaró con la clienta que se cobra el precio estimado de la solicitud.",
     },

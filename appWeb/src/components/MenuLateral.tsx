@@ -120,13 +120,13 @@ export function MenuLateral({ sesion, vistaActiva, esCompacto, cajonAbierto, onN
     >
       <span className="pebble pointer-events-none absolute -bottom-20 -right-24 h-64 w-64 bg-lagoon/25" aria-hidden />
 
-      <div className="relative flex h-12 items-center">
+      <div className="relative flex h-12 shrink-0 items-center">
         <div className="shrink-0 pl-0.5">
           <Logotipo claro />
         </div>
-          <span aria-hidden className={`ml-3 whitespace-nowrap transition duration-300 ease-soft ${claseDeLaEtiqueta}`}>
-            <TituloDeMarca className="h-12 w-auto" />
-          </span>
+        <span aria-hidden className={`ml-3 whitespace-nowrap transition duration-300 ease-soft ${claseDeLaEtiqueta}`}>
+          <TituloDeMarca className="h-9 w-auto" />
+        </span>
         {!esCompacto && (
           <button onClick={onCerrarCajon} aria-label="Cerrar menú" className="ml-auto grid h-10 w-10 cursor-pointer place-items-center rounded-full text-sky transition duration-300 hover:bg-white/10">
             <Icono nombre="cerrar" />
@@ -134,7 +134,7 @@ export function MenuLateral({ sesion, vistaActiva, esCompacto, cajonAbierto, onN
         )}
       </div>
 
-      <button onClick={() => onNavegar("perfil")} aria-label={`Perfil de ${sesion.nombre}`} aria-current={perfilEstaActivo ? "page" : undefined} className={`relative mt-8 flex h-16 w-full cursor-pointer items-center gap-3 rounded-2xl text-left transition-colors duration-300 hover:bg-white/10 ${perfilEstaActivo ? "bg-white/10" : ""}`}>
+      <button onClick={() => onNavegar("perfil")} aria-label={`Perfil de ${sesion.nombre}`} aria-current={perfilEstaActivo ? "page" : undefined} className={`relative mt-8 flex h-16 w-full shrink-0 cursor-pointer items-center gap-3 rounded-2xl text-left transition-colors duration-300 [@media(max-height:46rem)]:mt-4 hover:bg-white/10 ${perfilEstaActivo ? "bg-white/10" : ""}`}>
         <span className="pebble grid h-12 w-12 shrink-0 place-items-center bg-sky font-display text-lg font-extrabold text-oxford">{sesion.nombre.charAt(0)}</span>
         <span aria-hidden className={`whitespace-nowrap transition duration-300 ease-soft ${claseDeLaEtiqueta}`}>
           <span className="block text-sm font-bold text-white">Perfil</span>
@@ -142,16 +142,18 @@ export function MenuLateral({ sesion, vistaActiva, esCompacto, cajonAbierto, onN
         </span>
       </button>
 
-      <nav className="relative mt-6 flex-1" aria-label="Secciones">
-        <span aria-hidden className={`leaf-sm absolute left-0 top-0 h-12 w-full bg-moon transition duration-500 ease-soft ${claseDelIndicador}`} style={{ transform: `translateY(${Math.max(posicionDeLaVistaActiva, 0) * ALTURA_DE_CADA_OPCION_EN_REM}rem)` }} />
-        <div className="space-y-2">
-          {OPCIONES_DE_NAVEGACION.map((opcion) => (
-            <BotonDelMenu key={opcion.idDeVista} icono={opcion.icono} etiqueta={opcion.etiqueta} estaExpandido={estaExpandido} estaActivo={vistaActiva === opcion.idDeVista} onClick={() => onNavegar(opcion.idDeVista)} />
-          ))}
+      <nav className="relative -mx-2 mt-6 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2 py-1 [@media(max-height:46rem)]:mt-3 [scrollbar-color:rgb(255_255_255/0.25)_transparent] [scrollbar-width:thin]" aria-label="Secciones">
+        <div className="relative">
+          <span aria-hidden className={`leaf-sm absolute left-0 top-0 h-12 w-full bg-moon transition duration-500 ease-soft ${claseDelIndicador}`} style={{ transform: `translateY(${Math.max(posicionDeLaVistaActiva, 0) * ALTURA_DE_CADA_OPCION_EN_REM}rem)` }} />
+          <div className="space-y-2">
+            {OPCIONES_DE_NAVEGACION.map((opcion) => (
+              <BotonDelMenu key={opcion.idDeVista} icono={opcion.icono} etiqueta={opcion.etiqueta} estaExpandido={estaExpandido} estaActivo={vistaActiva === opcion.idDeVista} onClick={() => onNavegar(opcion.idDeVista)} />
+            ))}
+          </div>
         </div>
       </nav>
 
-      <div className="relative space-y-2 border-t border-white/10 pt-4">
+      <div className="relative shrink-0 space-y-2 border-t border-white/10 pt-4 [@media(max-height:46rem)]:pt-2">
         <BotonDelMenu icono="informacion" etiqueta="¿Quiénes somos?" estaExpandido={estaExpandido} onClick={onIrAQuienesSomos} />
         <BotonDelMenu icono="salir" etiqueta="Salir de la cuenta" estaExpandido={estaExpandido} onClick={onCerrarSesion} />
       </div>

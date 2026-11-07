@@ -18,11 +18,11 @@ function describirReputacion(trabajador: Trabajador): string {
 
 function DatoDelTrabajador({ icono, etiqueta, children }: { icono: NombreDeIcono; etiqueta: string; children: ReactNode }) {
   return (
-    <div className="flex items-start gap-3 rounded-2xl bg-beige px-4 py-3">
+    <div className="flex items-start gap-3 rounded-2xl bg-beige px-5 py-4">
       <Icono nombre={icono} className="mt-0.5 text-lagoon" />
       <div className="min-w-0">
         <dt className="text-xs font-bold uppercase tracking-wider text-slate">{etiqueta}</dt>
-        <dd className="mt-0.5 break-words text-sm font-bold text-navy">{children}</dd>
+        <dd className="mt-0.5 break-words text-base font-bold text-navy">{children}</dd>
       </div>
     </div>
   );
@@ -30,22 +30,22 @@ function DatoDelTrabajador({ icono, etiqueta, children }: { icono: NombreDeIcono
 
 function VentanaDeDetalleDelTrabajador({ trabajador, onCerrar }: { trabajador: Trabajador; onCerrar: () => void }) {
   return (
-    <VentanaModal idDelTitulo="titulo-del-trabajador" onCerrar={onCerrar} claseDeAncho="max-w-2xl">
+    <VentanaModal idDelTitulo="titulo-del-trabajador" onCerrar={onCerrar} claseDeAncho="max-w-3xl">
       <button onClick={onCerrar} aria-label="Cerrar detalle del trabajador" className="absolute right-4 top-4 grid h-10 w-10 cursor-pointer place-items-center rounded-full text-slate transition duration-300 hover:bg-sky/50">
         <Icono nombre="cerrar" />
       </button>
 
-      <div className="flex items-center gap-5">
-        <span className="pebble grid h-20 w-20 shrink-0 place-items-center bg-navy font-display text-3xl font-extrabold text-moss">{trabajador.nombre.charAt(0)}</span>
-        <div>
-          <h2 id="titulo-del-trabajador" className="text-3xl font-extrabold uppercase leading-tight text-navy">
+      <div className="flex items-center gap-5 pr-10">
+        <span className="pebble grid h-24 w-24 shrink-0 place-items-center bg-navy font-display text-4xl font-extrabold text-moss">{trabajador.nombre.charAt(0)}</span>
+        <div className="min-w-0">
+          <h2 id="titulo-del-trabajador" className="break-words text-3xl font-extrabold uppercase leading-tight text-navy sm:text-4xl">
             {trabajador.nombre}
           </h2>
           <p className="mt-1 text-sm font-bold text-lagoon">#{trabajador.id}</p>
         </div>
       </div>
 
-      <div className="mt-7 grid gap-6 sm:grid-cols-5">
+      <div className="mt-8 grid gap-6 sm:grid-cols-5">
         <dl className="space-y-2 sm:col-span-3">
           <DatoDelTrabajador icono="telefono" etiqueta="Teléfono">{trabajador.telefono}</DatoDelTrabajador>
           <DatoDelTrabajador icono="correo" etiqueta="Correo">{trabajador.correo}</DatoDelTrabajador>
@@ -56,7 +56,7 @@ function VentanaDeDetalleDelTrabajador({ trabajador, onCerrar }: { trabajador: T
           </DatoDelTrabajador>
         </dl>
 
-        <section aria-labelledby="titulo-de-documentacion" className="rounded-2xl bg-moon p-5 sm:col-span-2">
+        <section aria-labelledby="titulo-de-documentacion" className="rounded-2xl bg-moon p-6 sm:col-span-2">
           <h3 id="titulo-de-documentacion" className="text-center font-display text-base font-bold text-navy">
             Documentación subida
           </h3>
@@ -64,11 +64,11 @@ function VentanaDeDetalleDelTrabajador({ trabajador, onCerrar }: { trabajador: T
             {DOCUMENTOS_REQUERIDOS.map((documento) => {
               const documentoEntregado = trabajador.documentosEntregados.includes(documento);
               return (
-                <li key={documento} className="flex items-start gap-2 text-sm">
+                <li key={documento} className="flex items-start gap-2 text-base">
                   <Icono nombre={documentoEntregado ? "palomita" : "alerta"} className={`mt-0.5 h-4 w-4 ${documentoEntregado ? "text-sage" : "text-ochre"}`} />
                   <span>
                     <span className="block font-bold text-navy">{documento}</span>
-                    <span className="block text-xs text-slate">{documentoEntregado ? "Entregado" : "Pendiente"}</span>
+                    <span className="block text-sm text-slate">{documentoEntregado ? "Entregado" : "Pendiente"}</span>
                   </span>
                 </li>
               );

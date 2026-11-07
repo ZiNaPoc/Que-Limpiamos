@@ -43,16 +43,6 @@ export const TRABAJADORES_DE_DEMOSTRACION: Trabajador[] = [
     estado: "Ocupado",
     documentosEntregados: ["Identificación oficial", "Comprobante de domicilio", "Carta de antecedentes"],
   },
-  {
-    id: "W-05",
-    nombre: "Marta Uc Balam",
-    telefono: "998 123 4505",
-    correo: "marta.uc@ejemplo.com",
-    direccion: "SM 230, Av. Kabah, Cancún",
-    calificacion: 4.8,
-    estado: "Disponible",
-    documentosEntregados: ["Identificación oficial"],
-  },
 ];
 
 export const DOCUMENTOS_DEL_REGISTRO = ["Identificación oficial", "Comprobante de domicilio"];
