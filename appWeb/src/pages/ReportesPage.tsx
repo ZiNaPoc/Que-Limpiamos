@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { ESTADOS_DE_REPORTE, LONGITUD_MAXIMA_DE_LA_SOLUCION, useReportes, validarSolucion } from "../data/ReportesContext";
+import { nombreDelCliente as buscarNombreDelCliente, useClientes } from "../data/ClientesContext";
 import { useSolicitudes } from "../data/SolicitudesContext";
 import { useTrabajadores } from "../data/TrabajadoresContext";
 import { buscarTrabajador } from "../data/trabajadores";
-import type { EstadoDeReporte, Reporte, ResultadoDeOperacion, Solicitud, Trabajador } from "../data/tipos";
+import type { AperturaDelPanel, EstadoDeReporte, FiltroDeEstadoDeReporte, Navegar, Reporte, ResultadoDeOperacion, Solicitud, Trabajador } from "../data/tipos";
 import { formatearFechaNumerica, formatearHora, normalizarTexto } from "../utils/formato";
 import { AvisoTemporal } from "../components/comunes/AvisoTemporal";
 import { Icono } from "../components/comunes/Icono";
@@ -11,12 +12,11 @@ import { InsigniaDeDatosDeDemostracion, InsigniaDeEstado } from "../components/c
 import { TarjetaDeIndicador } from "../components/comunes/TarjetaDeIndicador";
 import { VentanaDeConfirmacion } from "../components/comunes/VentanasModales";
 
-type FiltroDeEstadoDeReporte = "Todos" | EstadoDeReporte;
-
 type ReporteConContexto = {
   reporte: Reporte;
   solicitud: Solicitud | undefined;
   trabajador: Trabajador | undefined;
+  cliente: string;
 };
 
 const COLOR_DEL_BORDE_POR_ESTADO: Record<EstadoDeReporte, string> = {
@@ -37,32 +37,30 @@ function useReportesConContexto(): ReporteConContexto[] {
   const { reportes } = useReportes();
   const { solicitudes } = useSolicitudes();
   const { trabajadores } = useTrabajadores();
+  const { clientes } = useClientes();
   return reportes
     .map((reporte) => {
       const solicitud = solicitudes.find((solicitudBuscada) => solicitudBuscada.id === reporte.idDeSolicitud);
       const trabajador = solicitud ? buscarTrabajador(trabajadores, solicitud.idDelTrabajador) : undefined;
-      return { reporte, solicitud, trabajador };
+      const cliente = solicitud ? buscarNombreDelCliente(clientes, solicitud.idDelCliente) : "Solicitud no encontrada";
+      return { reporte, solicitud, trabajador, cliente };
     })
     .sort((a, b) => new Date(b.reporte.fechaDeCreacion).getTime() - new Date(a.reporte.fechaDeCreacion).getTime());
-}
-
-function nombreDelCliente(solicitud: Solicitud | undefined): string {
-  return solicitud ? solicitud.nombreDelCliente : "Solicitud no encontrada";
 }
 
 function nombreDelTrabajador(trabajador: Trabajador | undefined): string {
   return trabajador ? trabajador.nombre : "Sin trabajador";
 }
 
-function ListaDeReportes({ onAbrirReporte }: { onAbrirReporte: (folio: string) => void }) {
+function ListaDeReportes({ filtroInicial, onAbrirReporte }: { filtroInicial: FiltroDeEstadoDeReporte; onAbrirReporte: (folio: string) => void }) {
   const reportesConContexto = useReportesConContexto();
   const [busqueda, setBusqueda] = useState("");
-  const [filtroDeEstado, setFiltroDeEstado] = useState<FiltroDeEstadoDeReporte>("Todos");
+  const [filtroDeEstado, setFiltroDeEstado] = useState<FiltroDeEstadoDeReporte>(filtroInicial);
 
   const textoBuscado = normalizarTexto(busqueda);
-  const reportesVisibles = reportesConContexto.filter(({ reporte, solicitud, trabajador }) => {
+  const reportesVisibles = reportesConContexto.filter(({ reporte, trabajador, cliente }) => {
     const coincideConElEstado = filtroDeEstado === "Todos" || reporte.estado === filtroDeEstado;
-    const textoDelReporte = normalizarTexto(`${reporte.folio} ${reporte.idDeSolicitud} ${nombreDelCliente(solicitud)} ${solicitud?.usuarioDelCliente ?? ""} ${nombreDelTrabajador(trabajador)} ${reporte.descripcion}`);
+    const textoDelReporte = normalizarTexto(`${reporte.folio} ${reporte.idDeSolicitud} ${cliente} ${nombreDelTrabajador(trabajador)} ${reporte.descripcion}`);
     return coincideConElEstado && textoDelReporte.includes(textoBuscado);
   });
   const hayFiltrosActivos = busqueda.trim() !== "" || filtroDeEstado !== "Todos";
@@ -82,7 +80,7 @@ function ListaDeReportes({ onAbrirReporte }: { onAbrirReporte: (folio: string) =
         <h1 className="text-4xl font-extrabold text-navy">Atención a reportes</h1>
         <InsigniaDeDatosDeDemostracion />
       </div>
-      <p className="mt-2 text-sm text-slate">Inconformidades que los clientes envían sobre sus servicios.</p>
+      <p className="mt-2 text-sm text-slate">Inconformidades que los clientes envían con «Reportar» desde el historial de la app.</p>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
         {ESTADOS_DE_REPORTE.map((estado) => (
@@ -135,7 +133,7 @@ function ListaDeReportes({ onAbrirReporte }: { onAbrirReporte: (folio: string) =
                 </tr>
               </thead>
               <tbody className="divide-y divide-mist/70">
-                {reportesVisibles.map(({ reporte, solicitud, trabajador }) => (
+                {reportesVisibles.map(({ reporte, trabajador, cliente }) => (
                   <tr key={reporte.folio} onClick={() => onAbrirReporte(reporte.folio)} className="cursor-pointer transition duration-300 hover:bg-sky/25">
                     <td className={`border-l-4 px-6 py-4 ${COLOR_DEL_BORDE_POR_ESTADO[reporte.estado]}`}>
                       <button
@@ -150,7 +148,7 @@ function ListaDeReportes({ onAbrirReporte }: { onAbrirReporte: (folio: string) =
                       </button>
                     </td>
                     <td className="px-4 py-4">
-                      <span className="block font-bold text-navy">{nombreDelCliente(solicitud)}</span>
+                      <span className="block font-bold text-navy">{cliente}</span>
                       <span className="block text-xs text-slate">{reporte.idDeSolicitud}</span>
                     </td>
                     <td className="px-4 py-4">{nombreDelTrabajador(trabajador)}</td>
@@ -168,14 +166,14 @@ function ListaDeReportes({ onAbrirReporte }: { onAbrirReporte: (folio: string) =
           </div>
 
           <ul className="space-y-4 md:hidden">
-            {reportesVisibles.map(({ reporte, solicitud, trabajador }) => (
+            {reportesVisibles.map(({ reporte, trabajador, cliente }) => (
               <li key={reporte.folio}>
                 <button onClick={() => onAbrirReporte(reporte.folio)} className={`surface leaf-sm w-full cursor-pointer border-l-4 p-5 text-left transition duration-300 active:scale-[0.99] ${COLOR_DEL_BORDE_POR_ESTADO[reporte.estado]}`}>
                   <span className="flex items-center justify-between gap-3">
                     <span className="rounded-full bg-navy px-3 py-1 text-xs font-bold text-white">{reporte.folio}</span>
                     <InsigniaDeEstado estado={reporte.estado} />
                   </span>
-                  <span className="mt-3 block font-bold text-navy">{nombreDelCliente(solicitud)}</span>
+                  <span className="mt-3 block font-bold text-navy">{cliente}</span>
                   <span className="block text-sm text-slate">Trabajador: {nombreDelTrabajador(trabajador)}</span>
                   <span className="mt-1 block text-xs text-slate">{formatearFechaNumerica(reporte.fechaDeCreacion)}</span>
                 </button>
@@ -191,12 +189,13 @@ function ListaDeReportes({ onAbrirReporte }: { onAbrirReporte: (folio: string) =
 type DetalleDelReporteProps = {
   reporteConContexto: ReporteConContexto;
   onVolver: () => void;
+  onNavegar: Navegar;
   onResultado: (resultado: ResultadoDeOperacion) => void;
 };
 
-function DetalleDelReporte({ reporteConContexto, onVolver, onResultado }: DetalleDelReporteProps) {
+function DetalleDelReporte({ reporteConContexto, onVolver, onNavegar, onResultado }: DetalleDelReporteProps) {
   const { guardarSolucion, cerrarReporte } = useReportes();
-  const { reporte, solicitud, trabajador } = reporteConContexto;
+  const { reporte, solicitud, trabajador, cliente } = reporteConContexto;
   const [solucion, setSolucion] = useState(reporte.solucion);
   const [errorDeLaSolucion, setErrorDeLaSolucion] = useState("");
   const [confirmacionDeCierreAbierta, setConfirmacionDeCierreAbierta] = useState(false);
@@ -226,7 +225,7 @@ function DetalleDelReporte({ reporteConContexto, onVolver, onResultado }: Detall
   }
 
   const datosDelReporte = [
-    { etiqueta: "Cliente", valor: nombreDelCliente(solicitud) },
+    { etiqueta: "Cliente", valor: cliente },
     { etiqueta: "Trabajador", valor: nombreDelTrabajador(trabajador) },
     { etiqueta: "Solicitud", valor: solicitud ? `${solicitud.id} · ${solicitud.servicio}` : reporte.idDeSolicitud },
     { etiqueta: "Fecha del reporte", valor: `${formatearFechaNumerica(reporte.fechaDeCreacion)} · ${formatearHora(reporte.fechaDeCreacion)}` },
@@ -258,7 +257,15 @@ function DetalleDelReporte({ reporteConContexto, onVolver, onResultado }: Detall
         <h2 id="titulo-de-descripcion-del-reporte" className="text-2xl font-extrabold text-navy">
           Descripción
         </h2>
-        <p className="mt-1 text-xs text-slate">Escrita por el cliente.</p>
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs text-slate">Escrita por el cliente.</p>
+          {solicitud && (
+            <button onClick={() => onNavegar("solicitudes", { idDeSolicitud: solicitud.id })} className="inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold text-lagoon transition duration-300 hover:bg-sky/50">
+              Ver solicitud {solicitud.id}
+              <Icono nombre="flecha" className="h-4 w-4" />
+            </button>
+          )}
+        </div>
         <p className="mt-4 rounded-2xl bg-beige p-5 text-sm leading-relaxed text-storm">{reporte.descripcion}</p>
       </section>
 
@@ -312,9 +319,9 @@ function DetalleDelReporte({ reporteConContexto, onVolver, onResultado }: Detall
   );
 }
 
-export function ReportesPage() {
+export function ReportesPage({ apertura, onNavegar }: { apertura: AperturaDelPanel; onNavegar: Navegar }) {
   const reportesConContexto = useReportesConContexto();
-  const [folioAbierto, setFolioAbierto] = useState<string | null>(null);
+  const [folioAbierto, setFolioAbierto] = useState<string | null>(apertura.folioDeReporte ?? null);
   const [aviso, setAviso] = useState<ResultadoDeOperacion | null>(null);
 
   useEffect(() => {
@@ -327,10 +334,10 @@ export function ReportesPage() {
     <>
       {reporteAbierto && (
         <div className="fade">
-          <DetalleDelReporte key={reporteAbierto.reporte.folio} reporteConContexto={reporteAbierto} onVolver={() => setFolioAbierto(null)} onResultado={setAviso} />
+          <DetalleDelReporte key={reporteAbierto.reporte.folio} reporteConContexto={reporteAbierto} onVolver={() => setFolioAbierto(null)} onNavegar={onNavegar} onResultado={setAviso} />
         </div>
       )}
-      {!reporteAbierto && <ListaDeReportes onAbrirReporte={setFolioAbierto} />}
+      {!reporteAbierto && <ListaDeReportes filtroInicial={apertura.filtroDeReportes ?? "Todos"} onAbrirReporte={setFolioAbierto} />}
       {aviso && <AvisoTemporal aviso={aviso} onTerminar={() => setAviso(null)} />}
     </>
   );

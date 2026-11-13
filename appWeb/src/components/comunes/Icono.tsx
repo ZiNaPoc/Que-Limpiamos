@@ -32,6 +32,9 @@ const TRAZOS_DE_ICONOS = {
   mas: "M12 5v14M5 12h14",
   chevronIzquierdo: "M15 6l-6 6 6 6",
   subir: "M12 20V9M7 13l5-5 5 5M5 4h14",
+  identificacion: "M3 6h18v12H3zM8.5 12.5a2 2 0 100-4 2 2 0 000 4zM5.5 15.5c.5-1.5 5.5-1.5 6 0M14 10h4M14 13.5h3",
+  candado: "M6 11h12v9H6zM8.5 11V8a3.5 3.5 0 017 0v3",
+  prohibido: "M12 21a9 9 0 100-18 9 9 0 000 18zM5.6 5.6l12.8 12.8",
 } as const;
 
 export type NombreDeIcono = keyof typeof TRAZOS_DE_ICONOS;

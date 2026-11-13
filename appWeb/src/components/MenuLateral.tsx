@@ -1,15 +1,15 @@
 import { useState, type FocusEvent } from "react";
 import { useAtrapaFoco } from "../hooks/useAtrapaFoco";
-import type { Sesion, VistaDelPanel } from "../data/tipos";
+import type { Navegar, Sesion, VistaDelPanel } from "../data/tipos";
 import { Icono, type NombreDeIcono } from "./comunes/Icono";
 import { Logotipo, TituloDeMarca } from "./comunes/FormasOrganicas";
 
 const OPCIONES_DE_NAVEGACION: { idDeVista: VistaDelPanel; etiqueta: string; icono: NombreDeIcono }[] = [
   { idDeVista: "inicio", etiqueta: "Inicio", icono: "inicio" },
   { idDeVista: "solicitudes", etiqueta: "Solicitudes", icono: "bandeja" },
+  { idDeVista: "clientes", etiqueta: "Clientes", icono: "clientes" },
   { idDeVista: "trabajadores", etiqueta: "Trabajadores", icono: "trabajadores" },
   { idDeVista: "catalogo", etiqueta: "Catálogo", icono: "catalogo" },
-  { idDeVista: "clientes", etiqueta: "Clientes", icono: "clientes" },
   { idDeVista: "reportes", etiqueta: "Reportes", icono: "reportes" },
   { idDeVista: "resenas", etiqueta: "Reseñas", icono: "estrella" },
 ];
@@ -53,7 +53,7 @@ type MenuLateralProps = {
   vistaActiva: VistaDelPanel;
   esCompacto: boolean;
   cajonAbierto: boolean;
-  onNavegar: (vista: VistaDelPanel) => void;
+  onNavegar: Navegar;
   onCerrarCajon: () => void;
   onIrAQuienesSomos: () => void;
   onCerrarSesion: () => void;

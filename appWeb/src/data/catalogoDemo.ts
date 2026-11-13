@@ -1,13 +1,36 @@
 import type { ServicioDelCatalogo } from "./tipos";
 
+// Servicios alineados con los mockups de la app: «Limpieza regular · Desde $400»,
+// «Limpieza profunda · Desde $600» y «Limpieza post-obra · Desde $650».
+// Los costos por m² y por habitación son de demostración.
 export const SERVICIOS_DE_DEMOSTRACION: ServicioDelCatalogo[] = [
   {
     id: "C-01",
-    nombre: "Limpieza general",
-    descripcion: "Pisos, baños, cocina y polvo en superficies.",
-    precioBase: 450,
+    nombre: "Limpieza regular",
+    descripcion: "Limpieza de mantenimiento que incluye barrer, trapear y aspirar.",
+    precioBase: 400,
+    costoPorMetroCuadrado: 4,
+    costoPorHabitacion: 60,
+    categoria: "Principal",
+    estado: "Activo",
+  },
+  {
+    id: "C-02",
+    nombre: "Limpieza profunda",
+    descripcion: "Limpieza detallada de todas las áreas del espacio, incluyendo zonas de difícil acceso.",
+    precioBase: 600,
     costoPorMetroCuadrado: 6,
-    costoPorHabitacion: 80,
+    costoPorHabitacion: 90,
+    categoria: "Principal",
+    estado: "Activo",
+  },
+  {
+    id: "C-03",
+    nombre: "Limpieza post-obra",
+    descripcion: "Limpieza después de una remodelación o construcción.",
+    precioBase: 650,
+    costoPorMetroCuadrado: 8,
+    costoPorHabitacion: 100,
     categoria: "Principal",
     estado: "Activo",
   },
@@ -32,7 +55,7 @@ export const SERVICIOS_DE_DEMOSTRACION: ServicioDelCatalogo[] = [
     estado: "Activo",
   },
   {
-    id: "C-08",
+    id: "C-06",
     nombre: "Limpieza de cajonera",
     descripcion: "Cajones por dentro y por fuera.",
     precioBase: 150,

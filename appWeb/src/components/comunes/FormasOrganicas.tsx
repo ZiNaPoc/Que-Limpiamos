@@ -25,10 +25,11 @@ export function OlasDeFondo({ className = "" }: { className?: string }) {
   );
 }
 
-export function Logotipo() {
+// «claro» se usa sobre fondos oscuros (menú lateral y pie de página).
+export function Logotipo({ claro = false }: { claro?: boolean }) {
   return (
     <span className="inline-flex shrink-0">
-      <img src={MARCA.logo} alt="Logotipo de ¿Qué limpiamos?" className="h-12 w-auto" />
+      <img src={MARCA.logo} alt="Logotipo de ¿Qué limpiamos?" className={`h-12 w-auto ${claro ? "brightness-0 invert" : ""}`} />
     </span>
   );
 }

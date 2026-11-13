@@ -1,4 +1,5 @@
 import { describirHorario, describirTiempoDesdeCreacion } from "../../utils/formato";
+import { useClientes, buscarCliente } from "../../data/ClientesContext";
 import { useTrabajadores } from "../../data/TrabajadoresContext";
 import { buscarTrabajador } from "../../data/trabajadores";
 import type { EstadoDeSolicitud, Solicitud } from "../../data/tipos";
@@ -22,9 +23,28 @@ function NombreDelTrabajadorAsignado({ solicitud }: { solicitud: Solicitud }) {
   const { trabajadores } = useTrabajadores();
   const trabajador = buscarTrabajador(trabajadores, solicitud.idDelTrabajador);
   if (!trabajador) {
-    return <span className="font-bold text-clay">Sin asignar</span>;
+    if (solicitud.estado === "Pendiente") {
+      return <span className="font-bold text-clay">Sin asignar</span>;
+    }
+    return <span className="text-slate">—</span>;
   }
-  return <span>{trabajador.nombre}</span>;
+  return (
+    <span>
+      {trabajador.nombre}
+      {solicitud.estado === "Pendiente" && <span className="block text-xs text-clay">Sin confirmar</span>}
+    </span>
+  );
+}
+
+function DatosDelCliente({ idDelCliente }: { idDelCliente: string }) {
+  const { clientes } = useClientes();
+  const cliente = buscarCliente(clientes, idDelCliente);
+  return (
+    <>
+      <span className="block font-bold text-navy">{cliente ? cliente.nombre : idDelCliente}</span>
+      <span className="block text-xs text-slate">{cliente ? cliente.telefono : "Cliente no encontrado"}</span>
+    </>
+  );
 }
 
 export function ListaDeSolicitudes({ solicitudes, ahora, claveDeHoy, onAbrirSolicitud }: ListaDeSolicitudesProps) {
@@ -39,7 +59,7 @@ export function ListaDeSolicitudes({ solicitudes, ahora, claveDeHoy, onAbrirSoli
               <th scope="col" className="px-4 py-4 font-bold">Servicio</th>
               <th scope="col" className="px-4 py-4 font-bold">Horario</th>
               <th scope="col" className="hidden px-4 py-4 font-bold xl:table-cell">Solicitada</th>
-              <th scope="col" className="hidden px-4 py-4 font-bold lg:table-cell">Trabajador</th>
+              <th scope="col" className="hidden px-4 py-4 font-bold lg:table-cell">Colaborador</th>
               <th scope="col" className="px-6 py-4 font-bold">Estado</th>
             </tr>
           </thead>
@@ -59,8 +79,7 @@ export function ListaDeSolicitudes({ solicitudes, ahora, claveDeHoy, onAbrirSoli
                   </button>
                 </td>
                 <td className="px-4 py-4">
-                  <span className="block font-bold text-navy">{solicitud.nombreDelCliente}</span>
-                  <span className="block text-xs text-slate">{solicitud.usuarioDelCliente}</span>
+                  <DatosDelCliente idDelCliente={solicitud.idDelCliente} />
                 </td>
                 <td className="px-4 py-4">{solicitud.servicio}</td>
                 <td className="whitespace-nowrap px-4 py-4 font-bold text-navy">{describirHorario(solicitud.fechaProgramada, claveDeHoy)}</td>
@@ -85,12 +104,14 @@ export function ListaDeSolicitudes({ solicitudes, ahora, claveDeHoy, onAbrirSoli
                 <span className="rounded-full bg-navy px-3 py-1 text-xs font-bold text-white">{solicitud.id}</span>
                 <InsigniaDeEstado estado={solicitud.estado} />
               </span>
-              <span className="mt-3 block font-bold text-navy">{solicitud.nombreDelCliente}</span>
-              <span className="block text-sm text-slate">{solicitud.servicio}</span>
+              <span className="mt-3 block">
+                <DatosDelCliente idDelCliente={solicitud.idDelCliente} />
+              </span>
+              <span className="mt-1 block text-sm text-slate">{solicitud.servicio}</span>
               <span className="mt-3 block text-sm font-bold text-navy">{describirHorario(solicitud.fechaProgramada, claveDeHoy)}</span>
               <span className="mt-1 block text-xs text-slate">Solicitada {describirTiempoDesdeCreacion(solicitud.fechaDeCreacion, ahora)}</span>
               <span className="mt-1 block text-xs text-slate">
-                Trabajador: <NombreDelTrabajadorAsignado solicitud={solicitud} />
+                Colaborador: <NombreDelTrabajadorAsignado solicitud={solicitud} />
               </span>
             </button>
           </li>

@@ -9,12 +9,15 @@ import {
   type ErroresDelServicio,
 } from "../data/CatalogoContext";
 import type { CategoriaDeServicio, ResultadoDeOperacion, ServicioDelCatalogo } from "../data/tipos";
-import { normalizarTexto } from "../utils/formato";
+import { useSolicitudes } from "../data/SolicitudesContext";
+import { useTrabajadores } from "../data/TrabajadoresContext";
+import { formatearPrecio, normalizarTexto } from "../utils/formato";
 import { AvisoTemporal } from "../components/comunes/AvisoTemporal";
 import { CampoDeFormulario } from "../components/comunes/CampoDeFormulario";
 import { Icono } from "../components/comunes/Icono";
 import { InsigniaDeDatosDeDemostracion, InsigniaDeEstado } from "../components/comunes/Insignias";
 import { TarjetaDeIndicador } from "../components/comunes/TarjetaDeIndicador";
+import { VentanaDeConfirmacion } from "../components/comunes/VentanasModales";
 
 type VistaDelCatalogo = { tipo: "lista" } | { tipo: "nuevo" } | { tipo: "editar"; idDelServicio: string };
 
@@ -125,7 +128,7 @@ function FormularioDeServicio({ servicioEditado, onCancelar, onTerminar }: Formu
           <textarea id="servicio-descripcion" rows={3} maxLength={300} value={borrador.descripcion} onChange={(evento) => cambiarCampo("descripcion", evento.target.value)} {...propiedadesDeError("descripcion")} className="field resize-y" />
         </CampoDeFormulario>
         <div className="grid gap-5 sm:grid-cols-3">
-          <CampoNumerico id="precioBase" etiqueta="Precio base (MXN)" valor={borrador.precioBase} error={errores.precioBase} onCambiar={(valor) => cambiarCampo("precioBase", valor)} />
+          <CampoNumerico id="precioBase" etiqueta="Precio «desde» (MXN)" valor={borrador.precioBase} error={errores.precioBase} onCambiar={(valor) => cambiarCampo("precioBase", valor)} />
           <CampoNumerico id="costoPorMetroCuadrado" etiqueta="Costo por m² (MXN)" valor={borrador.costoPorMetroCuadrado} error={errores.costoPorMetroCuadrado} onCambiar={(valor) => cambiarCampo("costoPorMetroCuadrado", valor)} />
           <CampoNumerico id="costoPorHabitacion" etiqueta="Costo por habitación (MXN)" valor={borrador.costoPorHabitacion} error={errores.costoPorHabitacion} onCambiar={(valor) => cambiarCampo("costoPorHabitacion", valor)} />
         </div>
@@ -165,10 +168,36 @@ function FormularioDeServicio({ servicioEditado, onCancelar, onTerminar }: Formu
 type ListaDelCatalogoProps = {
   onAgregar: () => void;
   onEditar: (idDelServicio: string) => void;
+  onResultado: (resultado: ResultadoDeOperacion) => void;
 };
 
-function ListaDelCatalogo({ onAgregar, onEditar }: ListaDelCatalogoProps) {
-  const { servicios } = useCatalogo();
+function ListaDelCatalogo({ onAgregar, onEditar, onResultado }: ListaDelCatalogoProps) {
+  const { servicios, cambiarEstadoDelServicio } = useCatalogo();
+  const { solicitudes } = useSolicitudes();
+  const { trabajadores } = useTrabajadores();
+  const [servicioPorCambiar, setServicioPorCambiar] = useState<ServicioDelCatalogo | null>(null);
+
+  function contarSolicitudes(idDelServicio: string) {
+    return solicitudes.filter((solicitud) => solicitud.idDelServicio === idDelServicio).length;
+  }
+
+  function contarEspecialistas(idDelServicio: string) {
+    return trabajadores.filter((trabajador) => trabajador.especialidades.includes(idDelServicio)).length;
+  }
+
+  function describirCambioDeEstado(servicio: ServicioDelCatalogo): string[] {
+    const lineas = [`Estado: ${servicio.estado} → ${servicio.estado === "Activo" ? "Inactivo" : "Activo"}`];
+    if (servicio.estado === "Activo") {
+      lineas.push("Dejará de aparecer en «Servicios» y en «Paquetes más populares» de la app.");
+      lineas.push("Las solicitudes que ya lo usan conservan su servicio, horario y precio.");
+    } else {
+      lineas.push("Volverá a aparecer en la app para que los clientes lo soliciten.");
+      if (contarEspecialistas(servicio.id) === 0) {
+        lineas.push("Ningún colaborador lo tiene como especialidad; la asignación automática no encontrará a quién asignarlo.");
+      }
+    }
+    return lineas;
+  }
   const [busqueda, setBusqueda] = useState("");
   const [filtroDeEstado, setFiltroDeEstado] = useState("Todos");
 
@@ -192,7 +221,7 @@ function ListaDelCatalogo({ onAgregar, onEditar }: ListaDelCatalogoProps) {
         <h1 className="text-4xl font-extrabold text-navy">Gestión de servicios</h1>
         <InsigniaDeDatosDeDemostracion />
       </div>
-      <p className="mt-2 text-sm text-slate">Tipos de servicio que ofrece la empresa y sus parámetros de cotización. Editar el catálogo no cambia las solicitudes existentes.</p>
+      <p className="mt-2 max-w-3xl text-sm text-slate">Servicios que el cliente ve en la app («Desde $…»). El precio base y los costos sirven para el precio estimado; el precio final lo confirma el colaborador. Editar el catálogo no cambia las solicitudes existentes.</p>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         <TarjetaDeIndicador etiqueta="Servicios registrados" valor={servicios.length} />
@@ -251,9 +280,14 @@ function ListaDelCatalogo({ onAgregar, onEditar }: ListaDelCatalogoProps) {
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block break-words text-sm font-bold text-navy">{servicio.nombre}</span>
-                    <span className="block text-xs text-slate">{servicio.id}</span>
+                    <span className="block text-xs text-slate">
+                      {servicio.id} · Desde {formatearPrecio(servicio.precioBase)} · {contarSolicitudes(servicio.id)} {contarSolicitudes(servicio.id) === 1 ? "solicitud" : "solicitudes"} · {contarEspecialistas(servicio.id)} {contarEspecialistas(servicio.id) === 1 ? "colaborador" : "colaboradores"}
+                    </span>
                   </span>
                   <InsigniaDeEstado estado={servicio.estado} />
+                  <button onClick={() => setServicioPorCambiar(servicio)} className="cursor-pointer rounded-full px-3 py-2 text-sm font-bold text-storm transition duration-300 hover:bg-sky/50">
+                    {servicio.estado === "Activo" ? "Desactivar" : "Activar"}
+                  </button>
                   <button onClick={() => onEditar(servicio.id)} aria-label={`Editar ${servicio.nombre}`} className="inline-flex cursor-pointer items-center gap-1 rounded-full px-3 py-2 text-sm font-bold text-lagoon transition duration-300 hover:bg-sky/50">
                     Editar
                     <Icono nombre="chevronDerecho" className="h-4 w-4" />
@@ -264,6 +298,18 @@ function ListaDelCatalogo({ onAgregar, onEditar }: ListaDelCatalogoProps) {
           </section>
         );
       })}
+      {servicioPorCambiar && (
+        <VentanaDeConfirmacion
+          titulo={servicioPorCambiar.estado === "Activo" ? `¿Desactivar «${servicioPorCambiar.nombre}»?` : `¿Activar «${servicioPorCambiar.nombre}»?`}
+          lineasDeCambios={describirCambioDeEstado(servicioPorCambiar)}
+          etiquetaDeConfirmar={servicioPorCambiar.estado === "Activo" ? "Sí, desactivar" : "Sí, activar"}
+          onConfirmar={() => {
+            onResultado(cambiarEstadoDelServicio(servicioPorCambiar.id));
+            setServicioPorCambiar(null);
+          }}
+          onCancelar={() => setServicioPorCambiar(null)}
+        />
+      )}
     </div>
   );
 }
@@ -284,7 +330,7 @@ export function CatalogoPage() {
     }
   }
 
-  let contenido = <ListaDelCatalogo onAgregar={() => setVista({ tipo: "nuevo" })} onEditar={(idDelServicio) => setVista({ tipo: "editar", idDelServicio })} />;
+  let contenido = <ListaDelCatalogo onAgregar={() => setVista({ tipo: "nuevo" })} onEditar={(idDelServicio) => setVista({ tipo: "editar", idDelServicio })} onResultado={setAviso} />;
   if (vista.tipo === "nuevo") {
     contenido = <FormularioDeServicio servicioEditado={null} onCancelar={() => setVista({ tipo: "lista" })} onTerminar={terminarFormulario} />;
   }

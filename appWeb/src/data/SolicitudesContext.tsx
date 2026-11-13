@@ -1,22 +1,29 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import {
   aplicarAcuerdoDePrecio,
+  aplicarCancelacion,
   aplicarCambioDeTrabajador,
-  evaluarIncorporacionDeEvidencias,
+  evaluarCancelacion,
   evaluarRegistroDeAcuerdoDePrecio,
   validarAcuerdoDePrecio,
   validarCambioDeTrabajador,
+  validarMotivoDeCancelacion,
   type DatosDeAcuerdoDePrecio,
 } from "../utils/reglasDeSolicitudes";
 import { crearSolicitudesDeDemostracion } from "./solicitudesDemo";
 import { useTrabajadores } from "./TrabajadoresContext";
-import type { EvidenciaFotografica, ResultadoDeOperacion, Solicitud } from "./tipos";
+import type { ResultadoDeOperacion, Solicitud } from "./tipos";
+
+// Las solicitudes las crea el cliente desde la app móvil. El panel no las crea ni edita su
+// servicio, horario o descripción: solo supervisa, asigna colaborador antes de su confirmación,
+// registra el precio confirmado y, si hace falta, cancela con un motivo.
+// Sin backend, todo vive en memoria mientras la pestaña siga abierta.
 
 type ValorDelContextoDeSolicitudes = {
   solicitudes: Solicitud[];
   cambiarTrabajadorAsignado: (idDeSolicitud: string, idDelTrabajadorNuevo: string | null) => ResultadoDeOperacion;
   registrarAcuerdoDePrecio: (idDeSolicitud: string, datos: DatosDeAcuerdoDePrecio) => ResultadoDeOperacion;
-  incorporarEvidencias: (idDeSolicitud: string, evidencias: EvidenciaFotografica[]) => ResultadoDeOperacion;
+  cancelarSolicitud: (idDeSolicitud: string, motivo: string) => ResultadoDeOperacion;
 };
 
 const SolicitudesContext = createContext<ValorDelContextoDeSolicitudes | null>(null);
@@ -47,7 +54,10 @@ export function SolicitudesProvider({ children }: { children: ReactNode }) {
       return validacion;
     }
     reemplazarSolicitud(aplicarCambioDeTrabajador(solicitud, idDelTrabajadorNuevo));
-    return { exito: true, mensaje: "Asignación actualizada en esta sesión de demostración." };
+    if (idDelTrabajadorNuevo === null) {
+      return { exito: true, mensaje: `${solicitud.id} quedó sin colaborador asignado.` };
+    }
+    return { exito: true, mensaje: `Colaborador asignado a ${solicitud.id}. Queda pendiente su confirmación.` };
   }
 
   function registrarAcuerdoDePrecio(idDeSolicitud: string, datos: DatosDeAcuerdoDePrecio): ResultadoDeOperacion {
@@ -65,28 +75,28 @@ export function SolicitudesProvider({ children }: { children: ReactNode }) {
       return { exito: false, mensaje: primerError };
     }
     reemplazarSolicitud(aplicarAcuerdoDePrecio(solicitud, Number(datos.precio), new Date()));
-    return { exito: true, mensaje: "Acuerdo de precio registrado solo en esta sesión de demostración." };
+    return { exito: true, mensaje: `Precio final registrado en ${solicitud.id}.` };
   }
 
-  function incorporarEvidencias(idDeSolicitud: string, evidencias: EvidenciaFotografica[]): ResultadoDeOperacion {
+  function cancelarSolicitud(idDeSolicitud: string, motivo: string): ResultadoDeOperacion {
     const solicitud = buscarSolicitud(idDeSolicitud);
     if (!solicitud) {
       return SOLICITUD_NO_ENCONTRADA;
     }
-    const permiso = evaluarIncorporacionDeEvidencias(solicitud, evidencias.length);
+    const permiso = evaluarCancelacion(solicitud);
     if (!permiso.exito) {
       return permiso;
     }
-    reemplazarSolicitud({ ...solicitud, evidencias: [...solicitud.evidencias, ...evidencias] });
-    let mensaje = `${evidencias.length} fotografías agregadas a ${solicitud.id} mientras esta pestaña siga abierta.`;
-    if (evidencias.length === 1) {
-      mensaje = `1 fotografía agregada a ${solicitud.id} mientras esta pestaña siga abierta.`;
+    const errorDelMotivo = validarMotivoDeCancelacion(motivo);
+    if (errorDelMotivo) {
+      return { exito: false, mensaje: errorDelMotivo };
     }
-    return { exito: true, mensaje };
+    reemplazarSolicitud(aplicarCancelacion(solicitud, motivo, new Date()));
+    return { exito: true, mensaje: `${solicitud.id} quedó cancelada. El cliente la verá así en su historial.` };
   }
 
   return (
-    <SolicitudesContext.Provider value={{ solicitudes, cambiarTrabajadorAsignado, registrarAcuerdoDePrecio, incorporarEvidencias }}>{children}</SolicitudesContext.Provider>
+    <SolicitudesContext.Provider value={{ solicitudes, cambiarTrabajadorAsignado, registrarAcuerdoDePrecio, cancelarSolicitud }}>{children}</SolicitudesContext.Provider>
   );
 }
 

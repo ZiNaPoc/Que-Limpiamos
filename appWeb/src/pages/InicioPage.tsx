@@ -1,10 +1,23 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useAhora } from "../hooks/useAhora";
+import { nombreDelCliente, useClientes } from "../data/ClientesContext";
+import { useReportes } from "../data/ReportesContext";
 import { useSolicitudes } from "../data/SolicitudesContext";
 import { useTrabajadores } from "../data/TrabajadoresContext";
 import { buscarTrabajador } from "../data/trabajadores";
-import type { AperturaDeSolicitudes, Sesion, Solicitud, VistaDelPanel } from "../data/tipos";
-import { FILTROS_PENDIENTES_DE_HOY, FILTROS_VACIOS, obtenerPendientesDeAsignarHoy, obtenerServiciosEnProcesoHoy, obtenerSolicitudesRecientes } from "../utils/consultasDeSolicitudes";
+import type { Navegar, Sesion, Solicitud } from "../data/tipos";
+import {
+  FILTROS_ESPERANDO_CONFIRMACION,
+  FILTROS_PENDIENTES_DE_HOY,
+  FILTROS_SIN_COLABORADOR,
+  obtenerEsperandoConfirmacion,
+  obtenerPendientesDeAsignarHoy,
+  obtenerServiciosEnProcesoHoy,
+  obtenerSinColaborador,
+  obtenerSolicitudesRecientes,
+} from "../utils/consultasDeSolicitudes";
+import { calcularEstadoDelTrabajador } from "../utils/consultasDeTrabajadores";
+import { contarDocumentosPorEstado } from "../utils/documentosDeClientes";
 import { obtenerClaveDeFecha } from "../utils/fechas";
 import { describirHorario, describirTiempoDesdeCreacion, formatearFechaDeHoy, formatearHora } from "../utils/formato";
 import { Icono } from "../components/comunes/Icono";
@@ -50,6 +63,7 @@ type TarjetaPendientesDeAsignarProps = {
 };
 
 function TarjetaPendientesDeAsignarHoy({ solicitudes, onVerTodas, onAbrirSolicitud }: TarjetaPendientesDeAsignarProps) {
+  const { clientes } = useClientes();
   const total = solicitudes.length;
   const totalMostrado = useContadorAnimado(total);
   const vistaPrevia = solicitudes.slice(0, CANTIDAD_DE_PENDIENTES_EN_VISTA_PREVIA);
@@ -65,7 +79,7 @@ function TarjetaPendientesDeAsignarHoy({ solicitudes, onVerTodas, onAbrirSolicit
           {totalMostrado}
         </p>
         <p className="sr-only">{total} solicitudes de hoy sin trabajador asignado</p>
-        {total > 0 && <p className="mt-3 max-w-xs text-sm text-sky">{total === 1 ? "solicitud de hoy espera" : "solicitudes de hoy esperan"} un trabajador.</p>}
+        {total > 0 && <p className="mt-3 max-w-xs text-sm text-sky">{total === 1 ? "solicitud de hoy no encontró" : "solicitudes de hoy no encontraron"} colaborador en la asignación automática.</p>}
         {total === 0 && (
           <p className="mt-3 flex max-w-xs items-center gap-2 text-sm text-sky">
             <Icono nombre="palomita" />
@@ -79,7 +93,7 @@ function TarjetaPendientesDeAsignarHoy({ solicitudes, onVerTodas, onAbrirSolicit
               <li key={solicitud.id}>
                 <button onClick={() => onAbrirSolicitud(solicitud.id)} className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-2xl bg-white/10 px-4 py-3 text-left text-sm transition duration-300 hover:bg-white/20">
                   <span className="min-w-0 truncate">
-                    <span className="font-bold text-moss">{solicitud.id}</span> · {solicitud.nombreDelCliente}
+                    <span className="font-bold text-moss">{solicitud.id}</span> · {nombreDelCliente(clientes, solicitud.idDelCliente)}
                   </span>
                   <span className="shrink-0 text-xs text-sky">{formatearHora(solicitud.fechaProgramada)}</span>
                 </button>
@@ -89,7 +103,7 @@ function TarjetaPendientesDeAsignarHoy({ solicitudes, onVerTodas, onAbrirSolicit
         )}
 
         <button onClick={onVerTodas} className="btn btn-moss mt-auto self-start" style={{ marginTop: "2rem" }}>
-          {total > 0 ? "Asignar trabajadores" : "Ver solicitudes de hoy"}
+          {total > 0 ? "Asignar colaboradores" : "Ver solicitudes de hoy"}
           <Icono nombre="flecha" className="h-4 w-4" />
         </button>
       </div>
@@ -113,7 +127,7 @@ function TarjetaServiciosEnProceso({ solicitudes, onAbrirSolicitud }: TarjetaSer
         </h3>
         <span className="font-display text-3xl font-extrabold text-navy">{solicitudes.length}</span>
       </div>
-      <p className="mt-1 text-xs text-slate">Confirmados con trabajador y programados para hoy.</p>
+      <p className="mt-1 text-xs text-slate">Confirmados por el colaborador y programados para hoy.</p>
 
       {vistaPrevia.length === 0 && <p className="mt-6 rounded-2xl bg-beige p-5 text-center text-sm text-slate">No hay servicios confirmados para hoy.</p>}
 
@@ -126,7 +140,7 @@ function TarjetaServiciosEnProceso({ solicitudes, onAbrirSolicitud }: TarjetaSer
                 <span className="rounded-full bg-navy px-3 py-1 text-xs font-bold text-white">{solicitud.id}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-bold text-navy">{solicitud.servicio}</span>
-                  <span className="block truncate text-xs text-slate">{trabajador ? trabajador.nombre : "Sin trabajador"}</span>
+                  <span className="block truncate text-xs text-slate">{trabajador ? trabajador.nombre : "Sin colaborador"}</span>
                 </span>
                 <span className="shrink-0 text-xs font-bold text-lagoon">{formatearHora(solicitud.fechaProgramada)}</span>
               </button>
@@ -140,6 +154,8 @@ function TarjetaServiciosEnProceso({ solicitudes, onAbrirSolicitud }: TarjetaSer
 
 function FranjaDelEquipo({ onVerTrabajadores }: { onVerTrabajadores: () => void }) {
   const { trabajadores } = useTrabajadores();
+  const { solicitudes } = useSolicitudes();
+  const ahora = useAhora();
   return (
     <section aria-labelledby="titulo-del-equipo">
       <div className="flex items-center justify-between gap-3">
@@ -152,15 +168,16 @@ function FranjaDelEquipo({ onVerTrabajadores }: { onVerTrabajadores: () => void 
       </div>
       <ul className="mt-4 flex gap-6 overflow-x-auto pb-2">
         {trabajadores.map((trabajador) => {
-          const estaDisponible = trabajador.estado === "Disponible";
+          const estado = calcularEstadoDelTrabajador(solicitudes, trabajador, ahora);
+          const colorDelPunto = estado === "Disponible" ? "bg-sage" : estado === "En servicio" ? "bg-steel" : "bg-slate";
           return (
             <li key={trabajador.id} className="flex w-20 shrink-0 flex-col items-center text-center">
               <span className="relative">
                 <span className="pebble grid h-16 w-16 place-items-center bg-sky font-display text-xl font-extrabold text-navy">{trabajador.nombre.charAt(0)}</span>
-                <span className={`absolute bottom-0 right-0 h-4 w-4 rounded-full border-2 border-beige ${estaDisponible ? "bg-sage" : "bg-ochre"}`} aria-hidden />
+                <span className={`absolute bottom-0 right-0 h-4 w-4 rounded-full border-2 border-beige ${colorDelPunto}`} aria-hidden />
               </span>
               <span className="mt-2 w-full truncate text-xs font-bold text-navy">{trabajador.nombre.split(" ")[0]}</span>
-              <span className="text-xs text-slate">{trabajador.estado}</span>
+              <span className="text-xs text-slate">{estado}</span>
             </li>
           );
         })}
@@ -177,6 +194,7 @@ type ListaDeSolicitudesRecientesProps = {
 };
 
 function ListaDeSolicitudesRecientes({ solicitudes, ahora, onAbrirSolicitud, onVerTodas }: ListaDeSolicitudesRecientesProps) {
+  const { clientes } = useClientes();
   const claveDeHoy = obtenerClaveDeFecha(ahora);
   return (
     <section aria-labelledby="titulo-de-solicitudes-recientes">
@@ -202,7 +220,7 @@ function ListaDeSolicitudesRecientes({ solicitudes, ahora, onAbrirSolicitud, onV
               <span className="w-fit rounded-full bg-navy px-3 py-1 text-xs font-bold text-white">{solicitud.id}</span>
               <span className="min-w-0">
                 <span className="block truncate text-sm font-bold text-navy">
-                  {solicitud.usuarioDelCliente} · {solicitud.servicio}
+                  {nombreDelCliente(clientes, solicitud.idDelCliente)} · {solicitud.servicio}
                 </span>
                 <span className="block truncate text-xs text-slate">{solicitud.descripcion}</span>
               </span>
@@ -225,21 +243,92 @@ function ListaDeSolicitudesRecientes({ solicitudes, ahora, onAbrirSolicitud, onV
   );
 }
 
+type IndicadorDeAtencion = {
+  etiqueta: string;
+  descripcion: string;
+  valor: number;
+  icono: "bandeja" | "reloj" | "identificacion" | "reportes";
+  onAbrir: () => void;
+};
+
+// Lo que necesita intervención del administrador: es el resultado de procesos que el cliente
+// inicia en la app (solicitar, registrarse con su INE, reportar).
+function RequiereAtencion({ indicadores }: { indicadores: IndicadorDeAtencion[] }) {
+  return (
+    <section aria-labelledby="titulo-de-atencion">
+      <h2 id="titulo-de-atencion" className="font-display text-2xl font-extrabold text-navy">
+        Requiere atención
+      </h2>
+      <ul className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {indicadores.map((indicador) => {
+          const estaAlDia = indicador.valor === 0;
+          return (
+            <li key={indicador.etiqueta}>
+              <button onClick={indicador.onAbrir} className={`surface leaf-sm flex h-full w-full cursor-pointer flex-col p-5 text-left transition duration-300 ease-soft hover:-translate-y-0.5 hover:shadow-lift ${estaAlDia ? "" : "ring-1 ring-ochre/50"}`}>
+                <span className="flex items-center justify-between gap-3">
+                  <span className={`pebble grid h-10 w-10 place-items-center ${estaAlDia ? "bg-moss/40 text-storm" : "bg-moon text-clay"}`}>
+                    <Icono nombre={estaAlDia ? "palomita" : indicador.icono} className="h-5 w-5" />
+                  </span>
+                  <span className="font-display text-4xl font-extrabold text-navy">{indicador.valor}</span>
+                </span>
+                <span className="mt-4 block text-sm font-bold text-navy">{indicador.etiqueta}</span>
+                <span className="mt-1 block text-xs text-slate">{indicador.descripcion}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 type InicioPageProps = {
   sesion: Sesion;
-  onNavegar: (vista: VistaDelPanel, apertura?: AperturaDeSolicitudes) => void;
+  onNavegar: Navegar;
 };
 
 export function InicioPage({ sesion, onNavegar }: InicioPageProps) {
   const { solicitudes } = useSolicitudes();
+  const { clientes } = useClientes();
+  const { reportes } = useReportes();
   const ahora = useAhora();
   const claveDeHoy = obtenerClaveDeFecha(ahora);
+  const indicadoresDeAtencion: IndicadorDeAtencion[] = [
+    {
+      etiqueta: "Sin colaborador",
+      descripcion: "La asignación automática no encontró a nadie.",
+      valor: obtenerSinColaborador(solicitudes, ahora).length,
+      icono: "bandeja",
+      onAbrir: () => onNavegar("solicitudes", { filtrosDeSolicitudes: FILTROS_SIN_COLABORADOR }),
+    },
+    {
+      etiqueta: "Esperan confirmación",
+      descripcion: "El colaborador aún no confirma el servicio.",
+      valor: obtenerEsperandoConfirmacion(solicitudes).length,
+      icono: "reloj",
+      onAbrir: () => onNavegar("solicitudes", { filtrosDeSolicitudes: FILTROS_ESPERANDO_CONFIRMACION }),
+    },
+    {
+      etiqueta: "Documentación por validar",
+      descripcion: "INE de clientes pendiente de revisión.",
+      valor: contarDocumentosPorEstado(clientes).Pendiente,
+      icono: "identificacion",
+      onAbrir: () => onNavegar("clientes", { seccionDeDocumentos: "Pendiente" }),
+    },
+    {
+      etiqueta: "Reportes sin resolver",
+      descripcion: "Pendientes o en revisión.",
+      valor: reportes.filter((reporte) => reporte.estado !== "Resuelto").length,
+      icono: "reportes",
+      onAbrir: () => onNavegar("reportes", { filtroDeReportes: "Todos" }),
+    },
+  ];
   const pendientesDeAsignarHoy = obtenerPendientesDeAsignarHoy(solicitudes, claveDeHoy);
   const serviciosEnProcesoHoy = obtenerServiciosEnProcesoHoy(solicitudes, claveDeHoy);
   const solicitudesRecientes = obtenerSolicitudesRecientes(solicitudes, CANTIDAD_DE_SOLICITUDES_RECIENTES);
 
   function abrirSolicitud(idDeSolicitud: string) {
-    onNavegar("solicitudes", { filtros: FILTROS_VACIOS, idDeSolicitud });
+    onNavegar("solicitudes", { idDeSolicitud });
   }
 
   return (
@@ -257,7 +346,11 @@ export function InicioPage({ sesion, onNavegar }: InicioPageProps) {
         </div>
       </header>
 
-      <div className="rise" style={{ animationDelay: "80ms" }}>
+      <div className="rise" style={{ animationDelay: "60ms" }}>
+        <RequiereAtencion indicadores={indicadoresDeAtencion} />
+      </div>
+
+      <div className="rise" style={{ animationDelay: "100ms" }}>
         <FranjaDelEquipo onVerTrabajadores={() => onNavegar("trabajadores")} />
       </div>
 
@@ -267,7 +360,7 @@ export function InicioPage({ sesion, onNavegar }: InicioPageProps) {
         </h2>
         <div className="mt-6 grid gap-8 lg:grid-cols-12">
           <div className="lg:col-span-6">
-            <TarjetaPendientesDeAsignarHoy solicitudes={pendientesDeAsignarHoy} onVerTodas={() => onNavegar("solicitudes", { filtros: FILTROS_PENDIENTES_DE_HOY, idDeSolicitud: null })} onAbrirSolicitud={abrirSolicitud} />
+            <TarjetaPendientesDeAsignarHoy solicitudes={pendientesDeAsignarHoy} onVerTodas={() => onNavegar("solicitudes", { filtrosDeSolicitudes: FILTROS_PENDIENTES_DE_HOY })} onAbrirSolicitud={abrirSolicitud} />
           </div>
           <div className="lg:col-span-6">
             <TarjetaServiciosEnProceso solicitudes={serviciosEnProcesoHoy} onAbrirSolicitud={abrirSolicitud} />

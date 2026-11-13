@@ -1,6 +1,7 @@
 import { claveDeFechaDesdeIso, diasEntre } from "./fechas";
 import { buscarTrabajador } from "../data/trabajadores";
-import type { FiltrosDeSolicitudes, Solicitud, Trabajador } from "../data/tipos";
+import { buscarCliente } from "../data/ClientesContext";
+import type { Cliente, FiltrosDeSolicitudes, Solicitud, Trabajador } from "../data/tipos";
 
 export const FILTROS_VACIOS: FiltrosDeSolicitudes = {
   busqueda: "",
@@ -16,6 +17,27 @@ export const FILTROS_PENDIENTES_DE_HOY: FiltrosDeSolicitudes = {
   fechaDelTrabajo: "hoy",
   asignacion: "sinAsignar",
 };
+
+export const FILTROS_SIN_COLABORADOR: FiltrosDeSolicitudes = {
+  ...FILTROS_VACIOS,
+  estado: "Pendiente",
+  asignacion: "sinAsignar",
+};
+
+export const FILTROS_ESPERANDO_CONFIRMACION: FiltrosDeSolicitudes = {
+  ...FILTROS_VACIOS,
+  estado: "Pendiente",
+  asignacion: "asignadas",
+};
+
+// Solicitudes pendientes sin colaborador cuyo servicio todavía no pasa.
+export function obtenerSinColaborador(solicitudes: Solicitud[], ahora: Date): Solicitud[] {
+  return solicitudes.filter((solicitud) => solicitud.estado === "Pendiente" && solicitud.idDelTrabajador === null && milisegundosDe(solicitud.fechaProgramada) >= ahora.getTime() - 60 * 60 * 1000);
+}
+
+export function obtenerEsperandoConfirmacion(solicitudes: Solicitud[]): Solicitud[] {
+  return solicitudes.filter((solicitud) => solicitud.estado === "Pendiente" && solicitud.idDelTrabajador !== null);
+}
 
 function milisegundosDe(fechaIso: string): number {
   return new Date(fechaIso).getTime();
@@ -85,16 +107,17 @@ function coincideConAsignacion(solicitud: Solicitud, filtro: FiltrosDeSolicitude
   return solicitud.idDelTrabajador !== null;
 }
 
-function coincideConLaBusqueda(solicitud: Solicitud, busqueda: string, trabajadores: Trabajador[]): boolean {
+function coincideConLaBusqueda(solicitud: Solicitud, busqueda: string, trabajadores: Trabajador[], clientes: Cliente[]): boolean {
   const textoBuscado = busqueda.trim().toLowerCase();
   if (textoBuscado === "") {
     return true;
   }
   const trabajador = buscarTrabajador(trabajadores, solicitud.idDelTrabajador);
+  const cliente = buscarCliente(clientes, solicitud.idDelCliente);
   const camposDondeBuscar = [
     solicitud.id,
-    solicitud.nombreDelCliente,
-    solicitud.usuarioDelCliente,
+    solicitud.idDelCliente,
+    cliente ? `${cliente.nombre} ${cliente.correo} ${cliente.telefono}` : "",
     solicitud.servicio,
     solicitud.direccion,
     solicitud.descripcion,
@@ -103,7 +126,7 @@ function coincideConLaBusqueda(solicitud: Solicitud, busqueda: string, trabajado
   return camposDondeBuscar.join(" ").toLowerCase().includes(textoBuscado);
 }
 
-export function filtrarSolicitudes(solicitudes: Solicitud[], filtros: FiltrosDeSolicitudes, claveDeHoy: string, trabajadores: Trabajador[]): Solicitud[] {
+export function filtrarSolicitudes(solicitudes: Solicitud[], filtros: FiltrosDeSolicitudes, claveDeHoy: string, trabajadores: Trabajador[], clientes: Cliente[]): Solicitud[] {
   return solicitudes
     .filter((solicitud) => {
       if (filtros.estado !== "todos" && solicitud.estado !== filtros.estado) {
@@ -113,7 +136,7 @@ export function filtrarSolicitudes(solicitudes: Solicitud[], filtros: FiltrosDeS
         coincideConFechaDelTrabajo(solicitud, filtros.fechaDelTrabajo, claveDeHoy) &&
         coincideConFechaDeSolicitud(solicitud, filtros.fechaDeSolicitud, claveDeHoy) &&
         coincideConAsignacion(solicitud, filtros.asignacion) &&
-        coincideConLaBusqueda(solicitud, filtros.busqueda, trabajadores)
+        coincideConLaBusqueda(solicitud, filtros.busqueda, trabajadores, clientes)
       );
     })
     .sort((a, b) => milisegundosDe(b.fechaDeCreacion) - milisegundosDe(a.fechaDeCreacion));

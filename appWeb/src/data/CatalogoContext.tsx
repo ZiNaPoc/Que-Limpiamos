@@ -129,6 +129,7 @@ type ValorDelContextoDelCatalogo = {
   servicios: ServicioDelCatalogo[];
   registrarServicio: (borrador: BorradorDeServicio) => ResultadoDeOperacion;
   editarServicio: (idDelServicio: string, borrador: BorradorDeServicio) => ResultadoDeOperacion;
+  cambiarEstadoDelServicio: (idDelServicio: string) => ResultadoDeOperacion;
 };
 
 const CatalogoContext = createContext<ValorDelContextoDelCatalogo | null>(null);
@@ -152,7 +153,7 @@ export function CatalogoProvider({ children }: { children: ReactNode }) {
       estado: "Activo",
     };
     setServicios((serviciosActuales) => [...serviciosActuales, nuevoServicio]);
-    return { exito: true, mensaje: `«${nuevoServicio.nombre}» se registró en el catálogo de esta sesión de demostración.` };
+    return { exito: true, mensaje: `«${nuevoServicio.nombre}» se registró en el catálogo.` };
   }
 
   function editarServicio(idDelServicio: string, borrador: BorradorDeServicio): ResultadoDeOperacion {
@@ -165,10 +166,24 @@ export function CatalogoProvider({ children }: { children: ReactNode }) {
     }
     const servicioActualizado: ServicioDelCatalogo = { ...servicioOriginal, ...convertirBorradorEnDatos(borrador) };
     setServicios((serviciosActuales) => serviciosActuales.map((servicio) => (servicio.id === idDelServicio ? servicioActualizado : servicio)));
-    return { exito: true, mensaje: "Cambios aplicados al catálogo de esta sesión. Las solicitudes existentes conservan sus condiciones." };
+    return { exito: true, mensaje: "Cambios aplicados al catálogo. Las solicitudes existentes conservan sus condiciones." };
   }
 
-  return <CatalogoContext.Provider value={{ servicios, registrarServicio, editarServicio }}>{children}</CatalogoContext.Provider>;
+  // Un servicio inactivo deja de mostrarse en la app; las solicitudes que ya lo usan no cambian.
+  function cambiarEstadoDelServicio(idDelServicio: string): ResultadoDeOperacion {
+    const servicio = servicios.find((servicioBuscado) => servicioBuscado.id === idDelServicio);
+    if (!servicio) {
+      return { exito: false, mensaje: "No se encontró el servicio." };
+    }
+    const estadoNuevo = servicio.estado === "Activo" ? "Inactivo" : "Activo";
+    setServicios((serviciosActuales) => serviciosActuales.map((servicioActual) => (servicioActual.id === idDelServicio ? { ...servicioActual, estado: estadoNuevo } : servicioActual)));
+    if (estadoNuevo === "Activo") {
+      return { exito: true, mensaje: `«${servicio.nombre}» vuelve a mostrarse en la app.` };
+    }
+    return { exito: true, mensaje: `«${servicio.nombre}» ya no se mostrará en la app.` };
+  }
+
+  return <CatalogoContext.Provider value={{ servicios, registrarServicio, editarServicio, cambiarEstadoDelServicio }}>{children}</CatalogoContext.Provider>;
 }
 
 export function useCatalogo(): ValorDelContextoDelCatalogo {

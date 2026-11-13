@@ -1,6 +1,5 @@
 export const TAMANO_MAXIMO_DE_ARCHIVO_EN_BYTES = 5 * 1024 * 1024;
 
-export const TIPOS_DE_FOTOGRAFIA_PERMITIDOS = ["image/jpeg", "image/png", "image/webp"];
 export const TIPOS_DE_DOCUMENTO_PERMITIDOS = ["application/pdf", "image/jpeg", "image/png"];
 
 const NOMBRE_LEGIBLE_POR_TIPO: Record<string, string> = {
@@ -41,15 +40,6 @@ async function leerPrimerosBytes(archivo: File, cantidad: number): Promise<Uint8
   return new Uint8Array(fragmento);
 }
 
-function comprobarQueLaImagenSePuedeAbrir(url: string): Promise<boolean> {
-  return new Promise((resolver) => {
-    const imagen = new Image();
-    imagen.onload = () => resolver(imagen.naturalWidth > 0 && imagen.naturalHeight > 0);
-    imagen.onerror = () => resolver(false);
-    imagen.src = url;
-  });
-}
-
 export async function validarArchivo(archivo: File, tiposPermitidos: string[]): Promise<string | null> {
   const tiposLegibles = describirTiposPermitidos(tiposPermitidos);
   if (!tiposPermitidos.includes(archivo.type)) {
@@ -70,18 +60,4 @@ export async function validarArchivo(archivo: File, tiposPermitidos: string[]): 
     return `No se pudo leer «${archivo.name}».`;
   }
   return null;
-}
-
-export async function prepararFotografia(archivo: File): Promise<{ url: string } | { error: string }> {
-  const error = await validarArchivo(archivo, TIPOS_DE_FOTOGRAFIA_PERMITIDOS);
-  if (error) {
-    return { error };
-  }
-  const url = URL.createObjectURL(archivo);
-  const sePuedeAbrir = await comprobarQueLaImagenSePuedeAbrir(url);
-  if (!sePuedeAbrir) {
-    URL.revokeObjectURL(url);
-    return { error: `«${archivo.name}» no se pudo procesar como imagen.` };
-  }
-  return { url };
 }

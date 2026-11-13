@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react";
-import { DATOS_DE_SECCIONES } from "../data/seccionesDeDemostracion";
-import type { AperturaDeSolicitudes, Sesion, VistaDelPanel } from "../data/tipos";
-import { FILTROS_VACIOS } from "../utils/consultasDeSolicitudes";
+import type { AperturaDelPanel, Sesion, VistaDelPanel } from "../data/tipos";
 import { MenuLateral } from "../components/MenuLateral";
 import { Icono } from "../components/comunes/Icono";
 import { FormaOrganica, Logotipo } from "../components/comunes/FormasOrganicas";
 import { InicioPage } from "./InicioPage";
 import { PerfilPage } from "./PerfilPage";
-import { SeccionDeDatosPage } from "./SeccionDeDatosPage";
 import { CatalogoPage } from "./CatalogoPage";
+import { ClientesPage } from "./ClientesPage";
+import { ResenasPage } from "./ResenasPage";
 import { ReportesPage } from "./ReportesPage";
 import { SolicitudesPage } from "./SolicitudesPage";
 import { TrabajadoresPage } from "./TrabajadoresPage";
@@ -28,7 +27,7 @@ function useMenuLateralCompacto() {
   return esCompacto;
 }
 
-const APERTURA_PREDETERMINADA: AperturaDeSolicitudes = { filtros: FILTROS_VACIOS, idDeSolicitud: null };
+const APERTURA_PREDETERMINADA: AperturaDelPanel = {};
 
 type DashboardPageProps = {
   sesion: Sesion;
@@ -40,7 +39,7 @@ export function DashboardPage({ sesion, onCerrarSesion, onIrAQuienesSomos }: Das
   const menuLateralEsCompacto = useMenuLateralCompacto();
   const [vistaActual, setVistaActual] = useState<VistaDelPanel>("inicio");
   const [cajonAbierto, setCajonAbierto] = useState(false);
-  const [aperturaDeSolicitudes, setAperturaDeSolicitudes] = useState<AperturaDeSolicitudes>(APERTURA_PREDETERMINADA);
+  const [apertura, setApertura] = useState<AperturaDelPanel>(APERTURA_PREDETERMINADA);
   const [cantidadDeNavegaciones, setCantidadDeNavegaciones] = useState(0);
 
   useEffect(() => {
@@ -53,9 +52,9 @@ export function DashboardPage({ sesion, onCerrarSesion, onIrAQuienesSomos }: Das
     }
   }, [menuLateralEsCompacto]);
 
-  function navegarA(vista: VistaDelPanel, apertura: AperturaDeSolicitudes = APERTURA_PREDETERMINADA) {
+  function navegarA(vista: VistaDelPanel, aperturaNueva: AperturaDelPanel = APERTURA_PREDETERMINADA) {
     setVistaActual(vista);
-    setAperturaDeSolicitudes(apertura);
+    setApertura(aperturaNueva);
     setCantidadDeNavegaciones((cantidad) => cantidad + 1);
     setCajonAbierto(false);
   }
@@ -68,18 +67,21 @@ export function DashboardPage({ sesion, onCerrarSesion, onIrAQuienesSomos }: Das
       return <PerfilPage sesion={sesion} />;
     }
     if (vistaActual === "solicitudes") {
-      return <SolicitudesPage filtrosIniciales={aperturaDeSolicitudes.filtros} idDeSolicitudAbierta={aperturaDeSolicitudes.idDeSolicitud} />;
+      return <SolicitudesPage apertura={apertura} onNavegar={navegarA} />;
     }
     if (vistaActual === "trabajadores") {
-      return <TrabajadoresPage />;
+      return <TrabajadoresPage onNavegar={navegarA} />;
     }
     if (vistaActual === "catalogo") {
       return <CatalogoPage />;
     }
-    if (vistaActual === "reportes") {
-      return <ReportesPage />;
+    if (vistaActual === "clientes") {
+      return <ClientesPage apertura={apertura} onNavegar={navegarA} />;
     }
-    return <SeccionDeDatosPage seccion={DATOS_DE_SECCIONES[vistaActual]} />;
+    if (vistaActual === "reportes") {
+      return <ReportesPage apertura={apertura} onNavegar={navegarA} />;
+    }
+    return <ResenasPage onNavegar={navegarA} />;
   }
 
   let claseDelContenidoPrincipal = "px-5 pb-20 pt-6 sm:px-10";

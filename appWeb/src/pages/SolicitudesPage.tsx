@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useAhora } from "../hooks/useAhora";
+import { useClientes } from "../data/ClientesContext";
 import { useSolicitudes } from "../data/SolicitudesContext";
 import { useTrabajadores } from "../data/TrabajadoresContext";
-import type { FiltrosDeSolicitudes } from "../data/tipos";
+import type { AperturaDelPanel, FiltrosDeSolicitudes, Navegar } from "../data/tipos";
 import { filtrarSolicitudes, FILTROS_VACIOS } from "../utils/consultasDeSolicitudes";
 import { obtenerClaveDeFecha } from "../utils/fechas";
 import { BarraDeFiltrosDeSolicitudes } from "../components/solicitudes/BarraDeFiltrosDeSolicitudes";
@@ -12,24 +13,25 @@ import { InsigniaDeDatosDeDemostracion } from "../components/comunes/Insignias";
 import { FormaOrganica } from "../components/comunes/FormasOrganicas";
 
 type SolicitudesPageProps = {
-  filtrosIniciales: FiltrosDeSolicitudes;
-  idDeSolicitudAbierta: string | null;
+  apertura: AperturaDelPanel;
+  onNavegar: Navegar;
 };
 
-export function SolicitudesPage({ filtrosIniciales, idDeSolicitudAbierta }: SolicitudesPageProps) {
+export function SolicitudesPage({ apertura, onNavegar }: SolicitudesPageProps) {
   const { solicitudes } = useSolicitudes();
   const { trabajadores } = useTrabajadores();
+  const { clientes } = useClientes();
   const ahora = useAhora();
   const claveDeHoy = obtenerClaveDeFecha(ahora);
-  const [filtros, setFiltros] = useState<FiltrosDeSolicitudes>(filtrosIniciales);
-  const [idDeSolicitudSeleccionada, setIdDeSolicitudSeleccionada] = useState<string | null>(idDeSolicitudAbierta);
+  const [filtros, setFiltros] = useState<FiltrosDeSolicitudes>(apertura.filtrosDeSolicitudes ?? FILTROS_VACIOS);
+  const [idDeSolicitudSeleccionada, setIdDeSolicitudSeleccionada] = useState<string | null>(apertura.idDeSolicitud ?? null);
 
   const solicitudSeleccionada = solicitudes.find((solicitud) => solicitud.id === idDeSolicitudSeleccionada);
   if (solicitudSeleccionada) {
-    return <DetalleDeSolicitud key={solicitudSeleccionada.id} solicitud={solicitudSeleccionada} onVolver={() => setIdDeSolicitudSeleccionada(null)} />;
+    return <DetalleDeSolicitud key={solicitudSeleccionada.id} solicitud={solicitudSeleccionada} onVolver={() => setIdDeSolicitudSeleccionada(null)} onNavegar={onNavegar} />;
   }
 
-  const solicitudesVisibles = filtrarSolicitudes(solicitudes, filtros, claveDeHoy, trabajadores);
+  const solicitudesVisibles = filtrarSolicitudes(solicitudes, filtros, claveDeHoy, trabajadores, clientes);
 
   return (
     <div>
@@ -37,7 +39,7 @@ export function SolicitudesPage({ filtrosIniciales, idDeSolicitudAbierta }: Soli
         <h1 className="text-4xl font-extrabold text-navy">Gestión de solicitudes</h1>
         <InsigniaDeDatosDeDemostracion />
       </div>
-      <p className="mt-2 text-sm text-slate">Consulta cada solicitud, sus fotografías y asigna trabajador.</p>
+      <p className="mt-2 max-w-3xl text-sm text-slate">Solicitudes que los clientes envían desde la app. Aquí se da seguimiento a su estado, se asigna colaborador cuando la asignación automática no encuentra uno y se atienden las que requieren intervención.</p>
 
       <div className="mt-8">
         <BarraDeFiltrosDeSolicitudes filtros={filtros} totalDeSolicitudes={solicitudes.length} solicitudesVisibles={solicitudesVisibles.length} onCambiarFiltros={setFiltros} onRestablecerFiltros={() => setFiltros(FILTROS_VACIOS)} />
