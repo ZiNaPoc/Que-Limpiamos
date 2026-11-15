@@ -5,25 +5,13 @@ import { FormaOrganica } from "../components/comunes/FormasOrganicas";
 import { Icono } from "../components/comunes/Icono";
 import { ImagenOIlustracion } from "../components/comunes/Ilustraciones";
 
-const REGLAS_DE_CONTRASENA = [
-  { etiqueta: "Al menos 8 caracteres", seCumple: (contrasena: string) => contrasena.length >= 8 },
-  { etiqueta: "Mayúscula y minúscula", seCumple: (contrasena: string) => /[a-z]/.test(contrasena) && /[A-Z]/.test(contrasena) },
-  { etiqueta: "Al menos un número", seCumple: (contrasena: string) => /\d/.test(contrasena) },
-];
-
-function quitarSeparadoresDelTelefono(telefono: string) {
-  return telefono.replace(/[\s()-]/g, "");
-}
-
 export function LoginPage({ onAccesoExitoso }: { onAccesoExitoso: (sesion: Sesion) => void }) {
-  const [correoOTelefono, setCorreoOTelefono] = useState("");
+  const [correo, setCorreo] = useState("");
   const [contrasena, setContrasena] = useState("");
   const [mensajeDeError, setMensajeDeError] = useState("");
   const [formularioVibrando, setFormularioVibrando] = useState(false);
   const [ayudaVisible, setAyudaVisible] = useState(false);
   const [contrasenaVisible, setContrasenaVisible] = useState(false);
-
-  const reglasCumplidas = REGLAS_DE_CONTRASENA.filter((regla) => regla.seCumple(contrasena)).length;
 
   function mostrarErrorDeAcceso(mensaje: string) {
     setMensajeDeError(mensaje);
@@ -31,21 +19,21 @@ export function LoginPage({ onAccesoExitoso }: { onAccesoExitoso: (sesion: Sesio
   }
 
   function rellenarCuentaDeDemostracion() {
-    setCorreoOTelefono(CUENTA_DE_DEMOSTRACION.correo);
+    setCorreo(CUENTA_DE_DEMOSTRACION.correo);
     setContrasena(CUENTA_DE_DEMOSTRACION.contrasena);
     setMensajeDeError("");
   }
 
   function handleEnvioDelFormulario(evento: FormEvent) {
     evento.preventDefault();
-    if (!correoOTelefono.trim() || !contrasena) {
-      mostrarErrorDeAcceso("Completa tu correo o teléfono y la contraseña.");
+    if (!correo.trim() || !contrasena) {
+      mostrarErrorDeAcceso("Completa tu correo y la contraseña.");
       return;
     }
-    const identificadorEscrito = correoOTelefono.trim().toLowerCase();
-    const identificadorCoincide = identificadorEscrito === CUENTA_DE_DEMOSTRACION.correo || quitarSeparadoresDelTelefono(identificadorEscrito) === CUENTA_DE_DEMOSTRACION.telefono;
+    const identificadorEscrito = correo.trim().toLowerCase();
+    const identificadorCoincide = identificadorEscrito === CUENTA_DE_DEMOSTRACION.correo;
     if (!identificadorCoincide || contrasena !== CUENTA_DE_DEMOSTRACION.contrasena) {
-      mostrarErrorDeAcceso("Correo, teléfono o contraseña incorrectos.");
+      mostrarErrorDeAcceso("Correo o contraseña incorrectos.");
       return;
     }
     onAccesoExitoso({ nombre: CUENTA_DE_DEMOSTRACION.nombre, nombreDeUsuario: CUENTA_DE_DEMOSTRACION.nombreDeUsuario, correo: CUENTA_DE_DEMOSTRACION.correo });
@@ -67,10 +55,10 @@ export function LoginPage({ onAccesoExitoso }: { onAccesoExitoso: (sesion: Sesio
 
           <form onSubmit={handleEnvioDelFormulario} className="mt-8 space-y-5" noValidate>
             <div>
-              <label htmlFor="correo-o-telefono" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-sky">
-                Correo electrónico o teléfono
+              <label htmlFor="correo" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-sky">
+                Correo electrónico
               </label>
-              <input id="correo-o-telefono" type="text" autoComplete="username" value={correoOTelefono} onChange={(evento) => setCorreoOTelefono(evento.target.value)} className="field" />
+              <input id="correo" type="text" autoComplete="username" value={correo} onChange={(evento) => setCorreo(evento.target.value)} className="field" />
             </div>
 
             <div>
@@ -78,30 +66,10 @@ export function LoginPage({ onAccesoExitoso }: { onAccesoExitoso: (sesion: Sesio
                 Contraseña
               </label>
               <div className="relative">
-                <input id="contrasena" type={contrasenaVisible ? "text" : "password"} autoComplete="current-password" value={contrasena} onChange={(evento) => setContrasena(evento.target.value)} aria-describedby="ayuda-de-contrasena" className="field pr-12" />
+                <input id="contrasena" type={contrasenaVisible ? "text" : "password"} autoComplete="current-password" value={contrasena} onChange={(evento) => setContrasena(evento.target.value)} className="field pr-12" />
                 <button type="button" onClick={() => setContrasenaVisible(!contrasenaVisible)} aria-label={contrasenaVisible ? "Ocultar contraseña" : "Mostrar contraseña"} aria-pressed={contrasenaVisible} className="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 cursor-pointer place-items-center rounded-full text-slate transition duration-300 hover:bg-sky/50">
                   <Icono nombre="ojo" className="h-4 w-4" />
                 </button>
-              </div>
-
-              <div id="ayuda-de-contrasena" className="mt-3">
-                <p className="text-xs text-sky">La contraseña debe tener al menos 8 caracteres. Esta guía es solo orientativa.</p>
-                <div className="mt-2 flex gap-1.5" aria-hidden>
-                  {REGLAS_DE_CONTRASENA.map((regla, indice) => (
-                    <span key={regla.etiqueta} className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ${indice < reglasCumplidas ? "bg-moss" : "bg-white/20"}`} />
-                  ))}
-                </div>
-                <ul className="mt-2 space-y-1 text-xs">
-                  {REGLAS_DE_CONTRASENA.map((regla) => {
-                    const reglaCumplida = regla.seCumple(contrasena);
-                    return (
-                      <li key={regla.etiqueta} className={`flex items-center gap-2 transition-colors duration-300 ${reglaCumplida ? "text-moss" : "text-frost"}`}>
-                        <Icono nombre={reglaCumplida ? "palomita" : "cerrar"} className="h-3.5 w-3.5" />
-                        {regla.etiqueta}
-                      </li>
-                    );
-                  })}
-                </ul>
               </div>
             </div>
 
