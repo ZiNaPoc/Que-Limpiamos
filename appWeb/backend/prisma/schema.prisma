@@ -1,0 +1,221 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model documentos_cliente {
+  id          Int                     @id @default(autoincrement())
+  usuario_id  Int
+  tipo        documentos_cliente_tipo
+  archivo_url String                  @db.VarChar(255)
+  created_at  DateTime                @default(now()) @db.DateTime(0)
+  usuarios    usuarios                @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_doc_cliente_usuario")
+
+  @@unique([usuario_id, tipo], map: "uq_doc_cliente_tipo")
+}
+
+model documentos_trabajador {
+  id            Int                        @id @default(autoincrement())
+  trabajador_id Int
+  tipo          documentos_trabajador_tipo
+  archivo_url   String                     @db.VarChar(255)
+  created_at    DateTime                   @default(now()) @db.DateTime(0)
+  trabajadores  trabajadores               @relation(fields: [trabajador_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_doc_trabajador")
+
+  @@unique([trabajador_id, tipo], map: "uq_doc_trabajador_tipo")
+}
+
+model evidencias_solicitud {
+  id           Int         @id @default(autoincrement())
+  solicitud_id Int
+  archivo_url  String      @db.VarChar(255)
+  descripcion  String?     @db.VarChar(255)
+  created_at   DateTime    @default(now()) @db.DateTime(0)
+  solicitudes  solicitudes @relation(fields: [solicitud_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_evid_solicitud")
+
+  @@index([solicitud_id], map: "fk_evid_solicitud")
+}
+
+model notificaciones {
+  id           Int                 @id @default(autoincrement())
+  usuario_id   Int
+  solicitud_id Int?
+  tipo         notificaciones_tipo
+  titulo       String              @db.VarChar(100)
+  mensaje      String              @db.VarChar(255)
+  created_at   DateTime            @default(now()) @db.DateTime(0)
+  solicitudes  solicitudes?        @relation(fields: [solicitud_id], references: [id], onUpdate: NoAction, map: "fk_notif_solicitud")
+  usuarios     usuarios            @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_notif_usuario")
+
+  @@index([solicitud_id], map: "fk_notif_solicitud")
+  @@index([usuario_id], map: "fk_notif_usuario")
+}
+
+model password_reset_tokens {
+  id         Int      @id @default(autoincrement())
+  usuario_id Int
+  token_hash String   @unique(map: "uq_reset_token") @db.Char(64)
+  expira_en  DateTime @db.DateTime(0)
+  usado      Boolean  @default(false)
+  created_at DateTime @default(now()) @db.DateTime(0)
+  usuarios   usuarios @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_reset_usuario")
+
+  @@index([usuario_id], map: "fk_reset_usuario")
+}
+
+model resenas {
+  id                    Int         @id @default(autoincrement())
+  solicitud_id          Int         @unique(map: "uq_resena_solicitud")
+  puntuacion_servicio   Int         @db.TinyInt
+  puntuacion_trabajador Int         @db.TinyInt
+  comentario            String?     @db.Text
+  created_at            DateTime    @default(now()) @db.DateTime(0)
+  solicitudes           solicitudes @relation(fields: [solicitud_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_resena_solicitud")
+}
+
+model servicios {
+  id                    Int                    @id @default(autoincrement())
+  nombre                String                 @unique(map: "uq_servicios_nombre") @db.VarChar(100)
+  descripcion           String                 @db.Text
+  precio_base           Decimal                @db.Decimal(10, 2)
+  duracion_estimada_min Int                    @default(300) @db.UnsignedSmallInt
+  imagen_url            String?                @db.VarChar(255)
+  estado                servicios_estado       @default(ACTIVO)
+  created_at            DateTime               @default(now()) @db.DateTime(0)
+  updated_at            DateTime               @default(now()) @db.DateTime(0)
+  solicitudes           solicitudes[]
+  trabajador_servicios  trabajador_servicios[]
+}
+
+model solicitudes {
+  id                    Int                    @id @default(autoincrement())
+  cliente_id            Int
+  servicio_id           Int
+  trabajador_id         Int?
+  fecha_hora_programada DateTime               @db.DateTime(0)
+  direccion_servicio    String                 @db.VarChar(255)
+  precio_estimado       Decimal                @db.Decimal(10, 2)
+  precio_final          Decimal?               @db.Decimal(10, 2)
+  estado                solicitudes_estado     @default(PENDIENTE)
+  created_at            DateTime               @default(now()) @db.DateTime(0)
+  updated_at            DateTime               @default(now()) @db.DateTime(0)
+  evidencias_solicitud  evidencias_solicitud[]
+  notificaciones        notificaciones[]
+  resenas               resenas?
+  usuarios              usuarios               @relation(fields: [cliente_id], references: [id], onUpdate: NoAction, map: "fk_sol_cliente")
+  servicios             servicios              @relation(fields: [servicio_id], references: [id], onUpdate: NoAction, map: "fk_sol_servicio")
+  trabajadores          trabajadores?          @relation(fields: [trabajador_id], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_sol_trabajador")
+
+  @@index([servicio_id], map: "fk_sol_servicio")
+  @@index([cliente_id, estado], map: "idx_sol_cliente_estado")
+  @@index([estado, fecha_hora_programada], map: "idx_sol_estado_fecha")
+  @@index([trabajador_id, fecha_hora_programada], map: "idx_sol_trabajador_fecha")
+}
+
+model trabajador_horarios {
+  id            Int          @id @default(autoincrement())
+  trabajador_id Int
+  dia_semana    Int          @db.TinyInt
+  hora_inicio   DateTime     @db.Time(0)
+  hora_fin      DateTime     @db.Time(0)
+  trabajadores  trabajadores @relation(fields: [trabajador_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_horario_trabajador")
+
+  @@unique([trabajador_id, dia_semana], map: "uq_horario_dia")
+}
+
+model trabajador_servicios {
+  trabajador_id Int
+  servicio_id   Int
+  servicios     servicios    @relation(fields: [servicio_id], references: [id], onUpdate: NoAction, map: "fk_ts_servicio")
+  trabajadores  trabajadores @relation(fields: [trabajador_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_ts_trabajador")
+
+  @@id([trabajador_id, servicio_id])
+  @@index([servicio_id], map: "fk_ts_servicio")
+}
+
+model trabajadores {
+  id                    Int                     @id @default(autoincrement())
+  nombre_completo       String                  @db.VarChar(120)
+  telefono              String                  @unique(map: "uq_trabajadores_telefono") @db.Char(10)
+  correo                String                  @unique(map: "uq_trabajadores_correo") @db.VarChar(150)
+  direccion             String                  @db.VarChar(255)
+  foto_url              String?                 @db.VarChar(255)
+  estado                trabajadores_estado     @default(ACTIVO)
+  created_at            DateTime                @default(now()) @db.DateTime(0)
+  updated_at            DateTime                @default(now()) @db.DateTime(0)
+  documentos_trabajador documentos_trabajador[]
+  solicitudes           solicitudes[]
+  trabajador_horarios   trabajador_horarios[]
+  trabajador_servicios  trabajador_servicios[]
+}
+
+model usuarios {
+  id                    Int                          @id @default(autoincrement())
+  rol                   usuarios_rol                 @default(CLIENTE)
+  nombre_completo       String                       @db.VarChar(120)
+  correo                String                       @unique(map: "uq_usuarios_correo") @db.VarChar(150)
+  telefono              String                       @unique(map: "uq_usuarios_telefono") @db.Char(10)
+  password_hash         String                       @db.VarChar(255)
+  foto_url              String?                      @db.VarChar(255)
+  estado_cuenta         usuarios_estado_cuenta       @default(ACTIVA)
+  estado_verificacion   usuarios_estado_verificacion @default(PENDIENTE)
+  created_at            DateTime                     @default(now()) @db.DateTime(0)
+  documentos_cliente    documentos_cliente[]
+  notificaciones        notificaciones[]
+  password_reset_tokens password_reset_tokens[]
+  solicitudes           solicitudes[]
+}
+
+enum usuarios_rol {
+  CLIENTE
+  ADMIN
+}
+
+enum documentos_cliente_tipo {
+  INE_FRENTE
+  INE_REVERSO
+}
+
+enum documentos_trabajador_tipo {
+  IDENTIFICACION
+  COMPROBANTE_DOMICILIO
+}
+
+enum notificaciones_tipo {
+  SERVICIO_CONFIRMADO
+  CALIFICAR_SERVICIO
+}
+
+enum trabajadores_estado {
+  ACTIVO
+  INACTIVO
+}
+
+enum servicios_estado {
+  ACTIVO
+  INACTIVO
+}
+
+enum usuarios_estado_cuenta {
+  ACTIVA
+  SUSPENDIDA
+}
+
+enum usuarios_estado_verificacion {
+  PENDIENTE
+  VERIFICADO
+  RECHAZADO
+}
+
+enum solicitudes_estado {
+  PENDIENTE
+  CONFIRMADO
+  EN_PROCESO
+  REALIZADO
+  CANCELADO
+  RECHAZADO
+}
