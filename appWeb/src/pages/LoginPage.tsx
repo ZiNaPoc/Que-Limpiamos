@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from "react";
-import { CUENTA_DE_DEMOSTRACION, IMAGENES } from "../data/configuracion";
+import { useState } from "react";
+import {  IMAGENES } from "../data/configuracion";
 import type { Sesion } from "../data/tipos";
 import { FormaOrganica } from "../components/comunes/FormasOrganicas";
 import { Icono } from "../components/comunes/Icono";
@@ -18,25 +18,45 @@ export function LoginPage({ onAccesoExitoso }: { onAccesoExitoso: (sesion: Sesio
     setFormularioVibrando(true);
   }
 
-  function rellenarCuentaDeDemostracion() {
-    setCorreo(CUENTA_DE_DEMOSTRACION.correo);
-    setContrasena(CUENTA_DE_DEMOSTRACION.contrasena);
-    setMensajeDeError("");
-  }
-
-  function handleEnvioDelFormulario(evento: FormEvent) {
+  async function handleEnvioDelFormulario(evento: React.SubmitEvent<HTMLFormElement> ) {
     evento.preventDefault();
-    if (!correo.trim() || !contrasena) {
-      mostrarErrorDeAcceso("Completa tu correo y la contraseña.");
+    setMensajeDeError("");
+
+    if(!correo.trim() || !contrasena) {
+      mostrarErrorDeAcceso("Completa tu correo y contraseña.");
       return;
     }
-    const identificadorEscrito = correo.trim().toLowerCase();
-    const identificadorCoincide = identificadorEscrito === CUENTA_DE_DEMOSTRACION.correo;
-    if (!identificadorCoincide || contrasena !== CUENTA_DE_DEMOSTRACION.contrasena) {
-      mostrarErrorDeAcceso("Correo o contraseña incorrectos.");
-      return;
+
+    try {
+      const respuesta = await fetch (
+        `${import.meta.env.VITE_API_URL}/api/auth/admin/login`,
+        {
+          method: 'POST',
+          headers: {
+            "Content-Type" : "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            correo: correo.trim(),
+            password: contrasena,
+          }),
+        }
+      );
+
+      const datos = await respuesta.json();
+
+      if(!respuesta.ok) {
+        throw new Error(datos.mensaje || 'No se puedo iniciar sesion.');
+      }
+
+      onAccesoExitoso(datos.usuario);
+    } catch(error) {
+      mostrarErrorDeAcceso(
+        error instanceof Error
+        ? error.message
+        : 'Ocurrio un error al iniciar sesion'
+      );
     }
-    onAccesoExitoso({ nombre: CUENTA_DE_DEMOSTRACION.nombre, nombreDeUsuario: CUENTA_DE_DEMOSTRACION.nombreDeUsuario, correo: CUENTA_DE_DEMOSTRACION.correo });
   }
 
   return (
@@ -94,15 +114,6 @@ export function LoginPage({ onAccesoExitoso }: { onAccesoExitoso: (sesion: Sesio
               )}
             </div>
           </form>
-
-          <div className="mt-8 rounded-2xl bg-white/10 p-4 text-xs leading-relaxed text-sky">
-            <p className="font-bold text-white">Cuenta de demostración (simulación, sin seguridad real)</p>
-            <p className="mt-1 break-all">{CUENTA_DE_DEMOSTRACION.correo}</p>
-            <p>{CUENTA_DE_DEMOSTRACION.contrasena}</p>
-            <button type="button" onClick={rellenarCuentaDeDemostracion} className="mt-2 cursor-pointer font-bold text-moss underline underline-offset-4">
-              Rellenar datos
-            </button>
-          </div>
         </div>
       </div>
     </main>
