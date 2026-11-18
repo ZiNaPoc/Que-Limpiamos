@@ -1,3 +1,4 @@
+// Secciones del menú de la landing
 export const SECCIONES_DE_LA_LANDING = [
   { id: "inicio", etiqueta: "Inicio" },
   { id: "quienes-somos", etiqueta: "¿Quiénes somos?" },
@@ -20,8 +21,10 @@ export const MARCA = {
   titulo: "/titulo.png",
 };
 
+// Enlace de descarga de la app móvil
 export const ENLACE_DE_DESCARGA: string = "";
 
+// Cuenta de prueba para entrar al panel
 export const CUENTA_DE_DEMOSTRACION = {
   correo: "admin@quelimpiamos.demo",
   telefono: "9981234567",

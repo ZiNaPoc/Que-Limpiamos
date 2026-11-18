@@ -136,16 +136,6 @@ h3 {
     transform: translateX(6px);
   }
 }
-@keyframes pin-ring {
-  from {
-    opacity: 0.6;
-    transform: scale(0.4);
-  }
-  to {
-    opacity: 0;
-    transform: scale(2.2);
-  }
-}
 @keyframes turn-swap {
   0% {
     transform: rotate(0deg) scale(1);
@@ -186,11 +176,6 @@ h3 {
 .shake {
   animation: shake 0.3s ease-in-out;
 }
-.pin-ring {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: pin-ring 2.2s ease-out infinite;
-}
 .turning {
   animation: turn-swap 1.4s var(--ease-soft);
 }
@@ -215,7 +200,6 @@ h3 {
   .fade,
   .float,
   .shake,
-  .pin-ring,
   .turning {
     animation: none;
   }

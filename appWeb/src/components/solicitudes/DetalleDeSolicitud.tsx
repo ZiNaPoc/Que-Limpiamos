@@ -1,119 +1,73 @@
 import { useState, type ReactNode } from "react";
 import { useAhora } from "../../hooks/useAhora";
 import { buscarCliente, useClientes } from "../../data/ClientesContext";
-import { useReportes } from "../../data/ReportesContext";
 import { useSolicitudes } from "../../data/SolicitudesContext";
 import { useTrabajadores } from "../../data/TrabajadoresContext";
 import { buscarTrabajador } from "../../data/trabajadores";
-import type { Navegar, ResultadoDeOperacion, Solicitud } from "../../data/tipos";
+import type { EtapaDeSolicitud, Navegar, ResultadoDeOperacion, Solicitud } from "../../data/tipos";
 import { obtenerClaveDeFecha } from "../../utils/fechas";
-import { describirHorarioDeTrabajo } from "../../utils/horarios";
-import { describirHorario, describirTiempoDesdeCreacion, formatearFechaNumerica, formatearHora, formatearPrecio } from "../../utils/formato";
+import { describirHorario, describirTiempoDesdeCreacion, formatearFechaNumerica, formatearHora } from "../../utils/formato";
 import {
-  describirAcuerdoDePrecio,
   describirCancelacion,
   describirCambioDeTrabajador,
+  describirConfirmacion,
   describirEstadoDeLaAsignacion,
+  describirFinalizacion,
   evaluarCambioDeTrabajador,
   evaluarCancelacion,
-  evaluarRegistroDeAcuerdoDePrecio,
+  evaluarConfirmacion,
+  evaluarFinalizacion,
   LONGITUD_MAXIMA_DEL_MOTIVO,
   listarTrabajadoresConDisponibilidad,
-  validarAcuerdoDePrecio,
+  obtenerEtapa,
+  puedeAtender,
   validarCambioDeTrabajador,
   validarMotivoDeCancelacion,
-  type DatosDeAcuerdoDePrecio,
   type DisponibilidadDelTrabajador,
-  type ErroresDelAcuerdoDePrecio,
 } from "../../utils/reglasDeSolicitudes";
 import { AvisoTemporal } from "../comunes/AvisoTemporal";
 import { CampoDeFormulario } from "../comunes/CampoDeFormulario";
 import { Icono } from "../comunes/Icono";
-import { InsigniaDeEstado, Puntuacion } from "../comunes/Insignias";
+import { InsigniaDeEstado } from "../comunes/Insignias";
 import { VentanaDeConfirmacion, VentanaModal } from "../comunes/VentanasModales";
-import { EvidenciasDelLugar } from "./EvidenciasDelLugar";
-import { MapaDeUbicacion } from "./MapaDeUbicacion";
 
-function FilaDeInformacion({ etiqueta, children, claseDeFondo = "bg-beige" }: { etiqueta: string; children: ReactNode; claseDeFondo?: string }) {
+function FilaDeInformacion({ etiqueta, children }: { etiqueta: string; children: ReactNode }) {
   return (
-    <div className={`rounded-2xl px-4 py-3 ${claseDeFondo}`}>
+    <div className="rounded-2xl bg-beige px-4 py-3">
       <dt className="text-xs font-bold uppercase tracking-wider text-slate">{etiqueta}</dt>
       <dd className="mt-1 text-sm font-bold text-navy">{children}</dd>
     </div>
   );
 }
 
-const DATOS_DE_ACUERDO_VACIOS: DatosDeAcuerdoDePrecio = { precio: "", aceptadoPorElCliente: false, aceptadoPorElTrabajador: false };
+// Pasos que se muestran en la barra de seguimiento
+const PASOS_DEL_SEGUIMIENTO: EtapaDeSolicitud[] = ["Solicitud enviada", "Asignando colaborador", "Servicio confirmado", "Servicio finalizado"];
 
-type VentanaDeAcuerdoDePrecioProps = {
-  solicitud: Solicitud;
-  nombreDelCliente: string;
-  nombreDelTrabajador: string;
-  onCerrar: () => void;
-  onRegistrar: (datos: DatosDeAcuerdoDePrecio) => void;
-};
-
-function VentanaDeAcuerdoDePrecio({ solicitud, nombreDelCliente, nombreDelTrabajador, onCerrar, onRegistrar }: VentanaDeAcuerdoDePrecioProps) {
-  const [datos, setDatos] = useState<DatosDeAcuerdoDePrecio>(DATOS_DE_ACUERDO_VACIOS);
-  const [errores, setErrores] = useState<ErroresDelAcuerdoDePrecio>({});
-
-  function handleRegistrar() {
-    const erroresEncontrados = validarAcuerdoDePrecio(solicitud, datos);
-    setErrores(erroresEncontrados);
-    if (Object.keys(erroresEncontrados).length > 0) {
-      return;
-    }
-    onRegistrar(datos);
+// Barra de pasos: marca lo completado y el paso actual
+function SeguimientoDeLaSolicitud({ etapa }: { etapa: EtapaDeSolicitud }) {
+  if (etapa === "Cancelada") {
+    return null;
   }
-
-  let precioAcordadoActual = "Pendiente de confirmar";
-  if (solicitud.acuerdoDePrecio) {
-    precioAcordadoActual = formatearPrecio(solicitud.acuerdoDePrecio.precio);
-  }
-
+  const pasoActual = PASOS_DEL_SEGUIMIENTO.indexOf(etapa);
   return (
-    <VentanaModal idDelTitulo="titulo-del-acuerdo" onCerrar={onCerrar}>
-      <h2 id="titulo-del-acuerdo" className="text-2xl font-extrabold text-navy">
-        Registrar precio final
-      </h2>
-      <p className="mt-2 text-sm text-slate">El precio final lo confirma el colaborador al revisar el servicio. Registra solo un precio que el cliente y el colaborador ya aceptaron; el panel no fija precios.</p>
-      <dl className="mt-5 grid grid-cols-2 gap-2">
-        <FilaDeInformacion etiqueta="Precio estimado">{formatearPrecio(solicitud.precioEstimado)}</FilaDeInformacion>
-        <FilaDeInformacion etiqueta="Precio final">{precioAcordadoActual}</FilaDeInformacion>
-      </dl>
-      <div className="mt-5 space-y-4">
-        <CampoDeFormulario id="precio-acordado" etiqueta="Precio confirmado (MXN)" error={errores.precio}>
-          <input id="precio-acordado" type="number" inputMode="decimal" min="1" step="10" value={datos.precio} onChange={(evento) => setDatos({ ...datos, precio: evento.target.value })} aria-invalid={Boolean(errores.precio)} aria-describedby={errores.precio ? "precio-acordado-error" : undefined} className="field" />
-        </CampoDeFormulario>
-        <fieldset aria-describedby={errores.aceptaciones ? "aceptaciones-error" : undefined}>
-          <legend className="label">Aceptación de las partes</legend>
-          <label className="flex cursor-pointer items-start gap-3 rounded-2xl bg-beige px-4 py-3 text-sm text-storm">
-            <input type="checkbox" checked={datos.aceptadoPorElTrabajador} onChange={(evento) => setDatos({ ...datos, aceptadoPorElTrabajador: evento.target.checked })} className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-navy" />
-            {nombreDelTrabajador} (colaborador) confirmó este precio.
-          </label>
-          <label className="mt-2 flex cursor-pointer items-start gap-3 rounded-2xl bg-beige px-4 py-3 text-sm text-storm">
-            <input type="checkbox" checked={datos.aceptadoPorElCliente} onChange={(evento) => setDatos({ ...datos, aceptadoPorElCliente: evento.target.checked })} className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer accent-navy" />
-            {nombreDelCliente} (cliente) aceptó este precio.
-          </label>
-          {errores.aceptaciones && (
-            <p id="aceptaciones-error" role="alert" className="mt-1.5 text-xs font-semibold text-err">
-              {errores.aceptaciones}
-            </p>
-          )}
-        </fieldset>
-      </div>
-      <div className="mt-7 flex justify-end gap-3">
-        <button onClick={onCerrar} className="btn btn-quiet">
-          Volver
-        </button>
-        <button onClick={handleRegistrar} className="btn btn-primary">
-          Revisar
-        </button>
-      </div>
-    </VentanaModal>
+    <ol aria-label="Seguimiento de la solicitud" className="mt-6 grid gap-2 sm:grid-cols-4">
+      {PASOS_DEL_SEGUIMIENTO.map((paso, indice) => {
+        const completado = indice < pasoActual || etapa === "Servicio finalizado";
+        const esActual = indice === pasoActual && etapa !== "Servicio finalizado";
+        return (
+          <li key={paso} aria-current={esActual ? "step" : undefined} className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-bold ${esActual ? "bg-navy text-white" : completado ? "bg-moss/40 text-storm" : "bg-white text-slate"}`}>
+            <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs ${esActual ? "bg-white/20" : completado ? "bg-sage text-white" : "bg-beige"}`}>
+              {completado ? <Icono nombre="palomita" className="h-4 w-4" /> : indice + 1}
+            </span>
+            {paso}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
+// Ventana para escribir el motivo de la cancelación
 function VentanaDeCancelacion({ solicitud, onCerrar, onContinuar }: { solicitud: Solicitud; onCerrar: () => void; onContinuar: (motivo: string) => void }) {
   const [motivo, setMotivo] = useState("");
   const [error, setError] = useState("");
@@ -132,9 +86,7 @@ function VentanaDeCancelacion({ solicitud, onCerrar, onContinuar }: { solicitud:
       <h2 id="titulo-de-cancelacion" className="text-2xl font-extrabold text-navy">
         Cancelar {solicitud.id}
       </h2>
-      <p className="mt-2 text-sm text-slate">
-        Úsalo solo cuando el servicio no pueda realizarse (por ejemplo, el colaborador confirmado ya no puede asistir). Con la cancelación se libera la asignación. Si el cliente aún necesita la limpieza, deberá reagendarla desde la app.
-      </p>
+      <p className="mt-2 text-sm text-slate">Úsalo solo cuando el servicio no pueda realizarse (por ejemplo, el colaborador ya no puede asistir y no hay reemplazo). Se libera la asignación y el cliente deberá solicitar de nuevo desde la app.</p>
       <div className="mt-5">
         <CampoDeFormulario id="motivo-de-cancelacion" etiqueta="Motivo (lo verá el cliente)" error={error}>
           <textarea id="motivo-de-cancelacion" rows={4} maxLength={LONGITUD_MAXIMA_DEL_MOTIVO} value={motivo} onChange={(evento) => setMotivo(evento.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? "motivo-de-cancelacion-error" : undefined} className="field resize-y" />
@@ -155,9 +107,13 @@ function VentanaDeCancelacion({ solicitud, onCerrar, onContinuar }: { solicitud:
   );
 }
 
-function describirOpcion({ trabajador, estaOcupado, fueraDeHorario, tieneLaEspecialidad }: DisponibilidadDelTrabajador): string {
+// Texto de cada colaborador en la lista, con sus avisos
+function describirOpcion(disponibilidad: DisponibilidadDelTrabajador): string {
+  const { trabajador, estaInactivo, estaOcupado, fueraDeHorario, tieneLaEspecialidad } = disponibilidad;
   const notas: string[] = [];
-  if (fueraDeHorario) {
+  if (estaInactivo) {
+    notas.push("inactivo");
+  } else if (fueraDeHorario) {
     notas.push("fuera de su horario");
   } else if (estaOcupado) {
     notas.push("ocupado a esa hora");
@@ -168,52 +124,59 @@ function describirOpcion({ trabajador, estaOcupado, fueraDeHorario, tieneLaEspec
   return `${trabajador.id} · ${trabajador.nombre}${notas.length > 0 ? ` (${notas.join(", ")})` : ""}`;
 }
 
+// Acciones que piden confirmación antes de ejecutarse
+type AccionPorConfirmar = { tipo: "asignacion" } | { tipo: "confirmacion" } | { tipo: "finalizacion" } | { tipo: "cancelacion"; motivo: string };
+
 type DetalleDeSolicitudProps = {
   solicitud: Solicitud;
   onVolver: () => void;
   onNavegar: Navegar;
 };
 
+// Detalle de una solicitud: aquí el administrador avanza el flujo
 export function DetalleDeSolicitud({ solicitud, onVolver, onNavegar }: DetalleDeSolicitudProps) {
-  const { solicitudes, cambiarTrabajadorAsignado, registrarAcuerdoDePrecio, cancelarSolicitud } = useSolicitudes();
+  const { solicitudes, cambiarTrabajadorAsignado, confirmarServicio, finalizarServicio, cancelarSolicitud } = useSolicitudes();
   const { trabajadores } = useTrabajadores();
   const { clientes } = useClientes();
-  const { reportes } = useReportes();
   const ahora = useAhora();
   const claveDeHoy = obtenerClaveDeFecha(ahora);
+  // Estado de la pantalla: edición, ventanas abiertas y aviso final
   const [estaEditandoAsignacion, setEstaEditandoAsignacion] = useState(false);
   const [idDelTrabajadorElegido, setIdDelTrabajadorElegido] = useState(solicitud.idDelTrabajador ?? "");
   const [errorDeAsignacion, setErrorDeAsignacion] = useState("");
-  const [confirmacionDeAsignacionAbierta, setConfirmacionDeAsignacionAbierta] = useState(false);
-  const [ventanaDeAcuerdoAbierta, setVentanaDeAcuerdoAbierta] = useState(false);
-  const [acuerdoPorConfirmar, setAcuerdoPorConfirmar] = useState<DatosDeAcuerdoDePrecio | null>(null);
   const [ventanaDeCancelacionAbierta, setVentanaDeCancelacionAbierta] = useState(false);
-  const [motivoPorConfirmar, setMotivoPorConfirmar] = useState<string | null>(null);
+  const [accionPorConfirmar, setAccionPorConfirmar] = useState<AccionPorConfirmar | null>(null);
   const [aviso, setAviso] = useState<ResultadoDeOperacion | null>(null);
 
+  const etapa = obtenerEtapa(solicitud);
   const cliente = buscarCliente(clientes, solicitud.idDelCliente);
   const nombreDelCliente = cliente ? cliente.nombre : `Cliente ${solicitud.idDelCliente}`;
   const trabajadorAsignado = buscarTrabajador(trabajadores, solicitud.idDelTrabajador);
-  const reportesDeLaSolicitud = reportes.filter((reporte) => reporte.idDeSolicitud === solicitud.id);
+  // Permisos según las reglas: definen qué botones se pueden usar
   const permisoDeAsignacion = evaluarCambioDeTrabajador(solicitud);
-  const permisoDeAcuerdo = evaluarRegistroDeAcuerdoDePrecio(solicitud);
+  const permisoDeConfirmacion = evaluarConfirmacion(solicitud, trabajadores, ahora);
+  const permisoDeFinalizacion = evaluarFinalizacion(solicitud, ahora);
   const permisoDeCancelacion = evaluarCancelacion(solicitud);
   const trabajadoresConDisponibilidad = listarTrabajadoresConDisponibilidad(solicitudes, trabajadores, solicitud);
-  const motivosDeBloqueo = [permisoDeAsignacion, permisoDeAcuerdo].filter((permiso) => !permiso.exito).map((permiso) => permiso.mensaje);
-  const motivosSinRepetir = motivosDeBloqueo.filter((motivo, indice) => motivosDeBloqueo.indexOf(motivo) === indice);
   const colaboradorSinEspecialidad = trabajadorAsignado && !trabajadorAsignado.especialidades.includes(solicitud.idDelServicio);
+  const idDelTrabajadorNuevo = idDelTrabajadorElegido || null;
 
-  let idDelTrabajadorNuevo: string | null = null;
-  if (idDelTrabajadorElegido) {
-    idDelTrabajadorNuevo = idDelTrabajadorElegido;
+  // Razón por la que todavía no se puede avanzar al siguiente paso
+  let motivoParaNoAvanzar = "";
+  if (etapa === "Asignando colaborador" && !permisoDeConfirmacion.exito) {
+    motivoParaNoAvanzar = permisoDeConfirmacion.mensaje;
+  } else if (etapa === "Servicio confirmado" && !permisoDeFinalizacion.exito) {
+    motivoParaNoAvanzar = permisoDeFinalizacion.mensaje;
   }
 
+  // Abre el selector de colaborador
   function comenzarEdicionDeAsignacion() {
     setIdDelTrabajadorElegido(solicitud.idDelTrabajador ?? "");
     setErrorDeAsignacion("");
     setEstaEditandoAsignacion(true);
   }
 
+  // Valida el cambio y pide confirmación
   function pedirConfirmacionDeAsignacion() {
     if (idDelTrabajadorNuevo === solicitud.idDelTrabajador) {
       setEstaEditandoAsignacion(false);
@@ -225,39 +188,43 @@ export function DetalleDeSolicitud({ solicitud, onVolver, onNavegar }: DetalleDe
       setErrorDeAsignacion(validacion.mensaje);
       return;
     }
-    setConfirmacionDeAsignacionAbierta(true);
+    setAccionPorConfirmar({ tipo: "asignacion" });
   }
 
-  function aplicarAsignacion() {
-    const resultado = cambiarTrabajadorAsignado(solicitud.id, idDelTrabajadorNuevo);
-    setConfirmacionDeAsignacionAbierta(false);
-    if (resultado.exito) {
-      setEstaEditandoAsignacion(false);
-    } else {
-      setErrorDeAsignacion(resultado.mensaje);
+  // Ejecuta la acción confirmada y muestra el resultado
+  function ejecutarAccion() {
+    if (!accionPorConfirmar) {
+      return;
     }
+    let resultado: ResultadoDeOperacion;
+    if (accionPorConfirmar.tipo === "asignacion") {
+      resultado = cambiarTrabajadorAsignado(solicitud.id, idDelTrabajadorNuevo);
+      if (resultado.exito) {
+        setEstaEditandoAsignacion(false);
+      } else {
+        setErrorDeAsignacion(resultado.mensaje);
+      }
+    } else if (accionPorConfirmar.tipo === "confirmacion") {
+      resultado = confirmarServicio(solicitud.id);
+    } else if (accionPorConfirmar.tipo === "finalizacion") {
+      resultado = finalizarServicio(solicitud.id);
+    } else {
+      resultado = cancelarSolicitud(solicitud.id, accionPorConfirmar.motivo);
+    }
+    setAccionPorConfirmar(null);
     setAviso(resultado);
   }
 
-  function aplicarAcuerdo() {
-    if (!acuerdoPorConfirmar) {
-      return;
-    }
-    setAviso(registrarAcuerdoDePrecio(solicitud.id, acuerdoPorConfirmar));
-    setAcuerdoPorConfirmar(null);
-  }
-
-  function aplicarCancelacionConfirmada() {
-    if (motivoPorConfirmar === null) {
-      return;
-    }
-    setAviso(cancelarSolicitud(solicitud.id, motivoPorConfirmar));
-    setMotivoPorConfirmar(null);
-  }
-
-  let textoDelBotonDeAsignacion = "Cambiar colaborador";
-  if (!solicitud.idDelTrabajador) {
-    textoDelBotonDeAsignacion = "Asignar colaborador";
+  // Texto de la ventana de confirmación según la acción
+  let confirmacion: { titulo: string; lineas: string[]; etiqueta: string } | null = null;
+  if (accionPorConfirmar?.tipo === "asignacion") {
+    confirmacion = { titulo: solicitud.idDelTrabajador ? "¿Cambiar el colaborador?" : "¿Asignar este colaborador?", lineas: describirCambioDeTrabajador(solicitud, idDelTrabajadorNuevo, trabajadores), etiqueta: "Sí, guardar" };
+  } else if (accionPorConfirmar?.tipo === "confirmacion") {
+    confirmacion = { titulo: "¿Confirmar el servicio?", lineas: describirConfirmacion(solicitud, trabajadores), etiqueta: "Sí, confirmar" };
+  } else if (accionPorConfirmar?.tipo === "finalizacion") {
+    confirmacion = { titulo: "¿Marcar el servicio como finalizado?", lineas: describirFinalizacion(), etiqueta: "Sí, finalizar" };
+  } else if (accionPorConfirmar?.tipo === "cancelacion") {
+    confirmacion = { titulo: "¿Cancelar la solicitud?", lineas: describirCancelacion(solicitud, accionPorConfirmar.motivo, claveDeHoy), etiqueta: "Sí, cancelar" };
   }
 
   return (
@@ -269,27 +236,30 @@ export function DetalleDeSolicitud({ solicitud, onVolver, onNavegar }: DetalleDe
 
       <header className="mt-8 flex flex-wrap items-center gap-3">
         <span className="rounded-full bg-navy px-3 py-1 text-xs font-bold text-white">{solicitud.id}</span>
-        <InsigniaDeEstado estado={solicitud.estado} />
+        <InsigniaDeEstado estado={etapa} />
         <h1 className="w-full text-4xl font-extrabold text-navy">{solicitud.servicio}</h1>
         <p className="w-full text-sm text-slate">
           Solicitada el {formatearFechaNumerica(solicitud.fechaDeCreacion)} · {describirTiempoDesdeCreacion(solicitud.fechaDeCreacion, ahora)}
         </p>
       </header>
 
-      <section aria-label="Cliente y ubicación" className="mt-8 grid gap-8 lg:grid-cols-12">
-        <div className="leaf overflow-hidden shadow-card lg:col-span-7">
-          <MapaDeUbicacion latitud={solicitud.latitud} longitud={solicitud.longitud} direccion={solicitud.direccion} />
-        </div>
-        <div className="surface leaf-r p-7 lg:col-span-5">
+      {/* Seguimiento de la solicitud paso a paso */}
+      <SeguimientoDeLaSolicitud etapa={etapa} />
+
+      <div className="mt-8 grid gap-8 lg:grid-cols-12">
+        {/* Datos del cliente */}
+        <section aria-labelledby="titulo-del-cliente" className="surface leaf-r h-fit p-7 sm:p-9 lg:col-span-5">
           <p className="text-xs font-bold uppercase tracking-widest text-lagoon">Cliente</p>
-          <h2 className="mt-1 text-3xl font-extrabold text-navy">{nombreDelCliente}</h2>
+          <h2 id="titulo-del-cliente" className="mt-1 text-3xl font-extrabold text-navy">
+            {nombreDelCliente}
+          </h2>
           {cliente && (
             <dl className="mt-4 space-y-2">
               <FilaDeInformacion etiqueta="Teléfono">{cliente.telefono}</FilaDeInformacion>
               <FilaDeInformacion etiqueta="Correo">
                 <span className="break-all">{cliente.correo}</span>
               </FilaDeInformacion>
-              <FilaDeInformacion etiqueta="INE">
+              <FilaDeInformacion etiqueta="Verificación del INE">
                 <InsigniaDeEstado estado={cliente.verificacion.estado} />
               </FilaDeInformacion>
             </dl>
@@ -301,90 +271,26 @@ export function DetalleDeSolicitud({ solicitud, onVolver, onNavegar }: DetalleDe
               Ver perfil del cliente
             </button>
           )}
-        </div>
-      </section>
+        </section>
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-12">
-        <div className="space-y-8 lg:col-span-7">
-          <section aria-labelledby="titulo-de-descripcion" className="surface leaf-r p-7 sm:p-9">
-            <h2 id="titulo-de-descripcion" className="text-2xl font-extrabold text-navy">
-              Lo que pidió el cliente
-            </h2>
-            <dl className="mt-4 space-y-2">
-              <FilaDeInformacion etiqueta="Dirección">{solicitud.direccion}</FilaDeInformacion>
-            </dl>
-            <p className="mt-2 rounded-2xl bg-beige p-5 text-sm leading-relaxed text-storm">{solicitud.descripcion}</p>
-            <EvidenciasDelLugar key={solicitud.id} solicitud={solicitud} />
-          </section>
-
-          {solicitud.estado === "Realizado" && (
-            <section aria-labelledby="titulo-de-calificacion" className="surface leaf p-7 sm:p-9">
-              <h2 id="titulo-de-calificacion" className="text-2xl font-extrabold text-navy">
-                Calificación del cliente
-              </h2>
-              {solicitud.calificacion && (
-                <div className="mt-4 rounded-2xl bg-beige p-5">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <Puntuacion valor={solicitud.calificacion.puntuacion} tamano="h-6 w-6" />
-                    <span className="font-display text-xl font-extrabold text-navy">{solicitud.calificacion.puntuacion} de 5</span>
-                  </div>
-                  {solicitud.calificacion.comentario && <p className="mt-3 text-sm text-storm">“{solicitud.calificacion.comentario}”</p>}
-                  <p className="mt-2 text-xs text-slate">{formatearFechaNumerica(solicitud.calificacion.fecha)}</p>
-                </div>
-              )}
-              {!solicitud.calificacion && <p className="mt-4 rounded-2xl bg-beige p-5 text-sm text-slate">El cliente todavía no califica el servicio. La app se lo recuerda en «Avisos».</p>}
-            </section>
-          )}
-
-          {reportesDeLaSolicitud.length > 0 && (
-            <section aria-labelledby="titulo-de-reportes-de-la-solicitud" className="surface leaf-r p-7 sm:p-9">
-              <h2 id="titulo-de-reportes-de-la-solicitud" className="text-2xl font-extrabold text-navy">
-                Reportes del cliente
-              </h2>
-              <ul className="mt-4 space-y-2">
-                {reportesDeLaSolicitud.map((reporte) => (
-                  <li key={reporte.folio}>
-                    <button onClick={() => onNavegar("reportes", { folioDeReporte: reporte.folio })} className="flex w-full cursor-pointer items-center gap-3 rounded-2xl bg-beige px-4 py-3 text-left transition duration-300 hover:bg-sky/40">
-                      <span className="rounded-full bg-navy px-3 py-1 text-xs font-bold text-white">{reporte.folio}</span>
-                      <span className="min-w-0 flex-1 truncate text-sm text-storm">{reporte.descripcion}</span>
-                      <InsigniaDeEstado estado={reporte.estado} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-        </div>
-
-        <section aria-labelledby="titulo-del-servicio-acordado" className="surface leaf h-fit p-7 sm:p-9 lg:col-span-5">
+        {/* Servicio y asignación del colaborador */}
+        <section aria-labelledby="titulo-del-servicio-acordado" className="surface leaf h-fit p-7 sm:p-9 lg:col-span-7">
           <h2 id="titulo-del-servicio-acordado" className="text-2xl font-extrabold text-navy">
             Servicio y colaborador
           </h2>
 
-          <dl className="mt-4 space-y-2">
-            <FilaDeInformacion etiqueta="Fecha y hora (elegidas por el cliente)">
+          <dl className="mt-4 grid gap-2 sm:grid-cols-2">
+            <FilaDeInformacion etiqueta="Servicio seleccionado">{solicitud.servicio}</FilaDeInformacion>
+            <FilaDeInformacion etiqueta="Fecha y horario solicitados">
               {formatearFechaNumerica(solicitud.fechaProgramada)} · {formatearHora(solicitud.fechaProgramada)}
               <span className="mt-0.5 block text-xs font-semibold text-slate">{describirHorario(solicitud.fechaProgramada, claveDeHoy)}</span>
             </FilaDeInformacion>
-            <div className="grid grid-cols-2 gap-2">
-              <FilaDeInformacion etiqueta="Precio estimado">{formatearPrecio(solicitud.precioEstimado)}</FilaDeInformacion>
-              <FilaDeInformacion etiqueta="Precio final">
-                {solicitud.acuerdoDePrecio && formatearPrecio(solicitud.acuerdoDePrecio.precio)}
-                {!solicitud.acuerdoDePrecio && <span className="text-clay">Lo confirma el colaborador</span>}
-              </FilaDeInformacion>
-            </div>
-            <FilaDeInformacion etiqueta="Elección del colaborador">{solicitud.modoDeEleccion === "Cliente" ? "El cliente lo eligió personalmente" : "Asignación automática"}</FilaDeInformacion>
-            {!estaEditandoAsignacion && (
-              <FilaDeInformacion etiqueta={solicitud.estado === "Cancelado" ? "Colaborador antes de cancelar" : "Colaborador"}>
-                {trabajadorAsignado && (
-                  <span>
-                    {trabajadorAsignado.id} · {trabajadorAsignado.nombre}
-                    <span className="mt-0.5 block text-xs font-semibold text-slate">
-                      {trabajadorAsignado.telefono} · {describirHorarioDeTrabajo(trabajadorAsignado.horario)}
-                    </span>
-                  </span>
-                )}
-                {!trabajadorAsignado && <span className="text-clay">Sin asignar</span>}
+            <FilaDeInformacion etiqueta="Elección del colaborador">{solicitud.modoDeEleccion === "Cliente" ? "Selección manual" : "Asignación automática"}</FilaDeInformacion>
+            {!estaEditandoAsignacion && trabajadorAsignado && (
+              <FilaDeInformacion etiqueta={etapa === "Cancelada" ? "Colaborador antes de cancelar" : "Colaborador asignado"}>
+                <span>
+                  {trabajadorAsignado.id} · {trabajadorAsignado.nombre}
+                </span>
                 <span className="mt-1 block text-xs font-semibold text-slate">{describirEstadoDeLaAsignacion(solicitud)}</span>
               </FilaDeInformacion>
             )}
@@ -410,21 +316,18 @@ export function DetalleDeSolicitud({ solicitud, onVolver, onNavegar }: DetalleDe
           {estaEditandoAsignacion && (
             <div className="fade mt-4 space-y-4">
               <CampoDeFormulario id="trabajador" etiqueta="Colaborador" error={errorDeAsignacion}>
+                {/* Lista de colaboradores, con los disponibles primero */}
                 <select id="trabajador" value={idDelTrabajadorElegido} onChange={(evento) => setIdDelTrabajadorElegido(evento.target.value)} aria-invalid={Boolean(errorDeAsignacion)} aria-describedby={errorDeAsignacion ? "trabajador-error" : "trabajador-ayuda"} className="field cursor-pointer">
                   <option value="">Sin asignar</option>
-                  {trabajadoresConDisponibilidad.map((disponibilidad) => {
-                    const { trabajador, estaOcupado, fueraDeHorario } = disponibilidad;
-                    const noPuedeAtender = (estaOcupado || fueraDeHorario) && trabajador.id !== solicitud.idDelTrabajador;
-                    return (
-                      <option key={trabajador.id} value={trabajador.id} disabled={noPuedeAtender}>
-                        {describirOpcion(disponibilidad)}
-                      </option>
-                    );
-                  })}
+                  {trabajadoresConDisponibilidad.map((disponibilidad) => (
+                    <option key={disponibilidad.trabajador.id} value={disponibilidad.trabajador.id} disabled={!puedeAtender(disponibilidad) && disponibilidad.trabajador.id !== solicitud.idDelTrabajador}>
+                      {describirOpcion(disponibilidad)}
+                    </option>
+                  ))}
                 </select>
               </CampoDeFormulario>
               <p id="trabajador-ayuda" className="text-xs text-slate">
-                Solo se pueden elegir colaboradores que trabajan a esa hora y no tienen otro servicio cerca. La fecha, la hora y el precio no cambian, y el colaborador elegido todavía debe confirmar.
+                Solo se pueden elegir colaboradores activos que trabajan a esa hora y no tienen otro servicio cerca. La fecha y la hora no cambian.
               </p>
               <div className="flex justify-end gap-3 pt-2">
                 <button
@@ -445,32 +348,46 @@ export function DetalleDeSolicitud({ solicitud, onVolver, onNavegar }: DetalleDe
 
           {!estaEditandoAsignacion && (
             <div className="fade">
-              {motivosSinRepetir.length > 0 && (
-                <ul className="mt-4 space-y-2">
-                  {motivosSinRepetir.map((motivo) => (
-                    <li key={motivo} className="flex items-start gap-2 rounded-2xl bg-moss/30 p-3 text-xs text-storm">
-                      <Icono nombre="candado" className="h-4 w-4 text-lagoon" />
-                      {motivo}
-                    </li>
-                  ))}
-                </ul>
+              {/* Muestra por qué no se puede avanzar */}
+              {motivoParaNoAvanzar && (
+                <p className="mt-4 flex items-start gap-2 rounded-2xl bg-moon p-3 text-xs text-clay">
+                  <Icono nombre="alerta" className="h-4 w-4 text-ochre" />
+                  {motivoParaNoAvanzar}
+                </p>
+              )}
+              {etapa === "Servicio confirmado" && (
+                <p className="mt-4 flex items-start gap-2 rounded-2xl bg-moss/30 p-3 text-xs text-storm">
+                  <Icono nombre="candado" className="h-4 w-4 text-lagoon" />
+                  El servicio está confirmado: el colaborador ya no se puede cambiar. Si no puede realizarse, cancélalo.
+                </p>
               )}
               <div className="mt-6 flex flex-wrap justify-end gap-3">
+                {/* Cancelar la solicitud */}
                 {permisoDeCancelacion.exito && (
                   <button onClick={() => setVentanaDeCancelacionAbierta(true)} className="btn btn-quiet text-err">
                     <Icono nombre="prohibido" className="h-4 w-4" />
                     Cancelar solicitud
                   </button>
                 )}
-                {permisoDeAcuerdo.exito && (
-                  <button onClick={() => setVentanaDeAcuerdoAbierta(true)} className="btn btn-quiet">
-                    Registrar precio final
+                {/* Asignar o cambiar colaborador */}
+                {permisoDeAsignacion.exito && (
+                  <button onClick={comenzarEdicionDeAsignacion} className={`btn ${etapa === "Solicitud enviada" ? "btn-primary" : "btn-quiet"}`}>
+                    <Icono nombre="editar" className="h-4 w-4" />
+                    {solicitud.idDelTrabajador ? "Cambiar colaborador" : "Asignar colaborador"}
                   </button>
                 )}
-                {permisoDeAsignacion.exito && (
-                  <button onClick={comenzarEdicionDeAsignacion} className="btn btn-primary">
-                    <Icono nombre="editar" className="h-4 w-4" />
-                    {textoDelBotonDeAsignacion}
+                {/* Confirmar el servicio */}
+                {etapa === "Asignando colaborador" && (
+                  <button onClick={() => setAccionPorConfirmar({ tipo: "confirmacion" })} disabled={!permisoDeConfirmacion.exito} className="btn btn-primary disabled:cursor-not-allowed disabled:opacity-50">
+                    <Icono nombre="palomita" className="h-4 w-4" />
+                    Confirmar servicio
+                  </button>
+                )}
+                {/* Finalizar el servicio */}
+                {etapa === "Servicio confirmado" && (
+                  <button onClick={() => setAccionPorConfirmar({ tipo: "finalizacion" })} disabled={!permisoDeFinalizacion.exito} className="btn btn-primary disabled:cursor-not-allowed disabled:opacity-50">
+                    <Icono nombre="palomita" className="h-4 w-4" />
+                    Marcar como finalizado
                   </button>
                 )}
               </div>
@@ -479,37 +396,19 @@ export function DetalleDeSolicitud({ solicitud, onVolver, onNavegar }: DetalleDe
         </section>
       </div>
 
-      {confirmacionDeAsignacionAbierta && (
-        <VentanaDeConfirmacion titulo="¿Cambiar la asignación?" lineasDeCambios={describirCambioDeTrabajador(solicitud, idDelTrabajadorNuevo, trabajadores)} etiquetaDeConfirmar="Sí, cambiar" onConfirmar={aplicarAsignacion} onCancelar={() => setConfirmacionDeAsignacionAbierta(false)} />
-      )}
-      {ventanaDeAcuerdoAbierta && trabajadorAsignado && (
-        <VentanaDeAcuerdoDePrecio
-          solicitud={solicitud}
-          nombreDelCliente={nombreDelCliente}
-          nombreDelTrabajador={trabajadorAsignado.nombre}
-          onCerrar={() => setVentanaDeAcuerdoAbierta(false)}
-          onRegistrar={(datos) => {
-            setVentanaDeAcuerdoAbierta(false);
-            setAcuerdoPorConfirmar(datos);
-          }}
-        />
-      )}
-      {acuerdoPorConfirmar && (
-        <VentanaDeConfirmacion titulo="¿Registrar este precio?" lineasDeCambios={describirAcuerdoDePrecio(solicitud, Number(acuerdoPorConfirmar.precio))} etiquetaDeConfirmar="Sí, registrar" onConfirmar={aplicarAcuerdo} onCancelar={() => setAcuerdoPorConfirmar(null)} />
-      )}
       {ventanaDeCancelacionAbierta && (
         <VentanaDeCancelacion
           solicitud={solicitud}
           onCerrar={() => setVentanaDeCancelacionAbierta(false)}
           onContinuar={(motivo) => {
             setVentanaDeCancelacionAbierta(false);
-            setMotivoPorConfirmar(motivo);
+            setAccionPorConfirmar({ tipo: "cancelacion", motivo });
           }}
         />
       )}
-      {motivoPorConfirmar !== null && (
-        <VentanaDeConfirmacion titulo="¿Cancelar la solicitud?" lineasDeCambios={describirCancelacion(solicitud, motivoPorConfirmar, claveDeHoy)} etiquetaDeConfirmar="Sí, cancelar" onConfirmar={aplicarCancelacionConfirmada} onCancelar={() => setMotivoPorConfirmar(null)} />
-      )}
+      {/* Ventana de confirmación */}
+      {confirmacion && <VentanaDeConfirmacion titulo={confirmacion.titulo} lineasDeCambios={confirmacion.lineas} etiquetaDeConfirmar={confirmacion.etiqueta} onConfirmar={ejecutarAccion} onCancelar={() => setAccionPorConfirmar(null)} />}
+      {/* Resultado de la acción */}
       {aviso && <AvisoTemporal aviso={aviso} onTerminar={() => setAviso(null)} />}
     </div>
   );

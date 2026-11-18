@@ -4,6 +4,7 @@ import { useCatalogo } from "../data/CatalogoContext";
 import { buscarCliente, useClientes } from "../data/ClientesContext";
 import { useSolicitudes } from "../data/SolicitudesContext";
 import { useTrabajadores, validarTrabajador, type ErroresDeTrabajador } from "../data/TrabajadoresContext";
+import { buscarServiciosActivosDelTrabajador } from "../utils/reglasDeSolicitudes";
 import { DOCUMENTOS_REQUERIDOS, HORARIO_PREDETERMINADO } from "../data/trabajadores";
 import type { DatosDeTrabajador, HorarioDeTrabajo, Navegar, ResultadoDeOperacion, ServicioDelCatalogo, Trabajador } from "../data/tipos";
 import { describirTiposPermitidos, formatearTamanoDeArchivo, TAMANO_MAXIMO_DE_ARCHIVO_EN_BYTES, TIPOS_DE_DOCUMENTO_PERMITIDOS, validarArchivo } from "../utils/archivos";
@@ -18,6 +19,7 @@ import { InsigniaDeDatosDeDemostracion, InsigniaDeEstado, Puntuacion } from "../
 import { TarjetaDeIndicador } from "../components/comunes/TarjetaDeIndicador";
 import { VentanaModal } from "../components/comunes/VentanasModales";
 
+// Vista de la pantalla: lista, nuevo o editar
 type VistaDeTrabajadores = { tipo: "lista" } | { tipo: "nuevo" } | { tipo: "editar"; idDelTrabajador: string };
 
 function nombresDeEspecialidades(trabajador: Trabajador, servicios: ServicioDelCatalogo[]): string[] {
@@ -41,10 +43,15 @@ type VentanaDeDetalleProps = {
   onCerrar: () => void;
   onEditar: () => void;
   onNavegar: Navegar;
+  onResultado: (resultado: ResultadoDeOperacion) => void;
 };
 
-function VentanaDeDetalleDelTrabajador({ trabajador, onCerrar, onEditar, onNavegar }: VentanaDeDetalleProps) {
+// Ficha del colaborador con sus servicios
+function VentanaDeDetalleDelTrabajador({ trabajador, onCerrar, onEditar, onNavegar, onResultado }: VentanaDeDetalleProps) {
   const { solicitudes } = useSolicitudes();
+  const { cambiarEstadoDelTrabajador } = useTrabajadores();
+  const [confirmandoCambioDeEstado, setConfirmandoCambioDeEstado] = useState(false);
+  const [errorDelCambioDeEstado, setErrorDelCambioDeEstado] = useState("");
   const { servicios } = useCatalogo();
   const { clientes } = useClientes();
   const ahora = useAhora();
@@ -56,10 +63,20 @@ function VentanaDeDetalleDelTrabajador({ trabajador, onCerrar, onEditar, onNaveg
     .filter((solicitud) => solicitud.idDelTrabajador === trabajador.id && solicitud.calificacion)
     .sort((a, b) => new Date(b.calificacion!.fecha).getTime() - new Date(a.calificacion!.fecha).getTime())
     .slice(0, 3);
+  const estaActivo = trabajador.estado === "Activo";
+  const serviciosQueImpidenDesactivar = estaActivo ? buscarServiciosActivosDelTrabajador(solicitudes, trabajador.id) : [];
+
+  // Activa o desactiva al colaborador
+  function aplicarCambioDeEstado() {
+    const resultado = cambiarEstadoDelTrabajador(trabajador.id, solicitudes);
+    setConfirmandoCambioDeEstado(false);
+    setErrorDelCambioDeEstado(resultado.exito ? "" : resultado.mensaje);
+    onResultado(resultado);
+  }
 
   return (
     <VentanaModal idDelTitulo="titulo-del-trabajador" onCerrar={onCerrar} claseDeAncho="max-w-4xl">
-      <button onClick={onCerrar} aria-label="Cerrar detalle del trabajador" className="absolute right-4 top-4 grid h-10 w-10 cursor-pointer place-items-center rounded-full text-slate transition duration-300 hover:bg-sky/50">
+      <button onClick={onCerrar} aria-label="Cerrar detalle del colaborador" className="absolute right-4 top-4 grid h-10 w-10 cursor-pointer place-items-center rounded-full text-slate transition duration-300 hover:bg-sky/50">
         <Icono nombre="cerrar" />
       </button>
 
@@ -74,11 +91,42 @@ function VentanaDeDetalleDelTrabajador({ trabajador, onCerrar, onEditar, onNaveg
             <InsigniaDeEstado estado={estado} />
           </p>
         </div>
-        <button onClick={onEditar} className="btn btn-quiet">
-          <Icono nombre="editar" className="h-4 w-4" />
-          Editar
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => setConfirmandoCambioDeEstado(true)} className="btn btn-quiet">
+            <Icono nombre={estaActivo ? "prohibido" : "palomita"} className="h-4 w-4" />
+            {estaActivo ? "Desactivar" : "Activar"}
+          </button>
+          <button onClick={onEditar} className="btn btn-quiet">
+            <Icono nombre="editar" className="h-4 w-4" />
+            Editar
+          </button>
+        </div>
       </div>
+
+      {confirmandoCambioDeEstado && (
+        <div role="alertdialog" aria-labelledby="titulo-de-cambio-de-estado" className="fade mt-5 rounded-2xl border border-frost p-4">
+          <p id="titulo-de-cambio-de-estado" className="font-bold text-navy">
+            {estaActivo ? `¿Desactivar a ${trabajador.nombre}?` : `¿Activar a ${trabajador.nombre}?`}
+          </p>
+          <p className="mt-1 text-sm text-slate">
+            {estaActivo ? "Dejará de aparecer en «Elige a tu colaborador» de la app y no se le podrán asignar solicitudes." : "Volverá a aparecer en la app y se le podrán asignar solicitudes en su horario."}
+          </p>
+          {serviciosQueImpidenDesactivar.length > 0 && (
+            <p className="mt-2 rounded-xl bg-moon p-3 text-xs text-clay">
+              Tiene servicios por atender ({serviciosQueImpidenDesactivar.map((solicitud) => solicitud.id).join(", ")}). Reasígnalos o cancélalos antes de desactivarlo.
+            </p>
+          )}
+          <div className="mt-4 flex justify-end gap-3">
+            <button onClick={() => setConfirmandoCambioDeEstado(false)} className="btn btn-quiet">
+              Volver
+            </button>
+            <button onClick={aplicarCambioDeEstado} disabled={serviciosQueImpidenDesactivar.length > 0} className="btn btn-primary disabled:cursor-not-allowed disabled:opacity-50">
+              {estaActivo ? "Sí, desactivar" : "Sí, activar"}
+            </button>
+          </div>
+        </div>
+      )}
+      {errorDelCambioDeEstado && !confirmandoCambioDeEstado && <p className="mt-4 rounded-2xl bg-moon p-3 text-sm text-clay">{errorDelCambioDeEstado}</p>}
 
       <div className="mt-7 grid gap-6 md:grid-cols-5">
         <dl className="space-y-2 md:col-span-3">
@@ -162,15 +210,17 @@ function VentanaDeDetalleDelTrabajador({ trabajador, onCerrar, onEditar, onNaveg
   );
 }
 
-const FILTROS_DE_ESTADO: ("Todos" | EstadoDelTrabajador)[] = ["Todos", "Disponible", "En servicio", "Fuera de horario"];
+const FILTROS_DE_ESTADO: ("Todos" | EstadoDelTrabajador)[] = ["Todos", "Disponible", "En servicio", "Fuera de horario", "Inactivo"];
 
 type ListaDeTrabajadoresProps = {
   onAnadir: () => void;
   onEditar: (idDelTrabajador: string) => void;
   onNavegar: Navegar;
+  onResultado: (resultado: ResultadoDeOperacion) => void;
 };
 
-function ListaDeTrabajadores({ onAnadir, onEditar, onNavegar }: ListaDeTrabajadoresProps) {
+// Lista con búsqueda y filtro por estado
+function ListaDeTrabajadores({ onAnadir, onEditar, onNavegar, onResultado }: ListaDeTrabajadoresProps) {
   const { trabajadores } = useTrabajadores();
   const { solicitudes } = useSolicitudes();
   const ahora = useAhora();
@@ -195,21 +245,21 @@ function ListaDeTrabajadores({ onAnadir, onEditar, onNavegar }: ListaDeTrabajado
   return (
     <div>
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-4xl font-extrabold text-navy">Gestión de trabajadores</h1>
+        <h1 className="text-4xl font-extrabold text-navy">Gestión de colaboradores</h1>
         <InsigniaDeDatosDeDemostracion />
       </div>
-      <p className="mt-2 max-w-3xl text-sm text-slate">Colaboradores que atienden los servicios. Su horario y sus especialidades son lo que el cliente ve al elegir colaborador en la app; la reputación sale de las calificaciones de los clientes.</p>
+      <p className="mt-2 max-w-3xl text-sm text-slate">Colaboradores que atienden los servicios. Su horario y sus especialidades son lo que el cliente ve cuando elige personalmente en la app. Solo los activos reciben solicitudes; la reputación sale de las calificaciones de los clientes.</p>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
-        <TarjetaDeIndicador etiqueta="Trabajadores" valor={trabajadores.length} />
-        <TarjetaDeIndicador etiqueta="Disponibles ahora" valor={filas.filter((fila) => fila.estado === "Disponible").length} descripcion="En horario y sin servicio en curso." />
+        <TarjetaDeIndicador etiqueta="Colaboradores activos" valor={trabajadores.filter((trabajador) => trabajador.estado === "Activo").length} descripcion={`De ${trabajadores.length} registrados.`} />
+        <TarjetaDeIndicador etiqueta="Disponibles ahora" valor={filas.filter((fila) => fila.estado === "Disponible").length} descripcion="Pueden recibir solicitudes en este momento." />
         <TarjetaDeIndicador etiqueta="Documentación incompleta" valor={sinDocumentacionCompleta} />
       </div>
 
       <div className="mt-6 flex flex-col gap-4 lg:flex-row lg:items-center">
         <div className="relative flex-1">
           <Icono nombre="buscar" className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate" />
-          <input type="search" value={busqueda} onChange={(evento) => setBusqueda(evento.target.value)} placeholder="Buscar por ID, nombre o teléfono" aria-label="Buscar trabajadores" className="field pl-11" />
+          <input type="search" value={busqueda} onChange={(evento) => setBusqueda(evento.target.value)} placeholder="Buscar por ID, nombre o teléfono" aria-label="Buscar colaboradores" className="field pl-11" />
         </div>
         <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar por estado">
           {FILTROS_DE_ESTADO.map((estado) => (
@@ -220,7 +270,7 @@ function ListaDeTrabajadores({ onAnadir, onEditar, onNavegar }: ListaDeTrabajado
         </div>
       </div>
 
-      {filasVisibles.length === 0 && <p className="mt-6 rounded-2xl bg-white p-10 text-center text-sm text-slate">No hay trabajadores que coincidan.</p>}
+      {filasVisibles.length === 0 && <p className="mt-6 rounded-2xl bg-white p-10 text-center text-sm text-slate">No hay colaboradores que coincidan.</p>}
 
       <ul className="mt-6 space-y-3">
         {filasVisibles.map(({ trabajador, estado, reputacion, serviciosDeHoy }) => (
@@ -256,7 +306,7 @@ function ListaDeTrabajadores({ onAnadir, onEditar, onNavegar }: ListaDeTrabajado
 
       <button onClick={onAnadir} className="btn btn-primary mt-6 w-full">
         <Icono nombre="mas" className="h-4 w-4" />
-        Añadir trabajador
+        Añadir colaborador
       </button>
 
       {trabajadorAbierto && (
@@ -268,6 +318,7 @@ function ListaDeTrabajadores({ onAnadir, onEditar, onNavegar }: ListaDeTrabajado
             onEditar(trabajadorAbierto.id);
           }}
           onNavegar={onNavegar}
+          onResultado={onResultado}
         />
       )}
     </div>
@@ -286,6 +337,7 @@ type FilaDeDocumentoProps = {
   onQuitar: () => void;
 };
 
+// Fila para subir un documento requerido
 function FilaDeDocumento({ documento, yaEntregado, seleccionado, error, estaRevisando, onSeleccionar, onQuitar }: FilaDeDocumentoProps) {
   const selectorRef = useRef<HTMLInputElement>(null);
   const idDelError = `documento-${documento.replace(/\s+/g, "-")}-error`;
@@ -334,6 +386,7 @@ function FilaDeDocumento({ documento, yaEntregado, seleccionado, error, estaRevi
   );
 }
 
+// Selector de días y horas de trabajo
 function SelectorDeHorario({ horario, error, onCambiar }: { horario: HorarioDeTrabajo; error?: string; onCambiar: (horario: HorarioDeTrabajo) => void }) {
   function alternarDia(numero: number) {
     const dias = horario.dias.includes(numero) ? horario.dias.filter((dia) => dia !== numero) : [...horario.dias, numero];
@@ -385,6 +438,7 @@ type FormularioDeTrabajadorProps = {
   onTerminar: (resultado: ResultadoDeOperacion) => void;
 };
 
+// Formulario para dar de alta o editar un colaborador
 function FormularioDeTrabajador({ trabajadorEditado, onCancelar, onTerminar }: FormularioDeTrabajadorProps) {
   const { trabajadores, agregarTrabajador, editarTrabajador } = useTrabajadores();
   const { solicitudes } = useSolicitudes();
@@ -408,6 +462,7 @@ function FormularioDeTrabajador({ trabajadorEditado, onCancelar, onTerminar }: F
     setDatos({ ...datos, especialidades });
   }
 
+  // Valida el archivo elegido antes de aceptarlo
   async function seleccionarDocumento(documento: string, archivo: File) {
     setDocumentoEnRevision(documento);
     const error = await validarArchivo(archivo, TIPOS_DE_DOCUMENTO_PERMITIDOS);
@@ -428,6 +483,7 @@ function FormularioDeTrabajador({ trabajadorEditado, onCancelar, onTerminar }: F
     });
   }
 
+  // Valida y guarda; si hay errores se marcan en el formulario
   function handleEnviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     const datosCompletos: DatosDeTrabajador = {
@@ -460,17 +516,17 @@ function FormularioDeTrabajador({ trabajadorEditado, onCancelar, onTerminar }: F
     <div>
       <button onClick={onCancelar} className="btn btn-quiet">
         <Icono nombre="volver" className="h-4 w-4" />
-        Volver a trabajadores
+        Volver a colaboradores
       </button>
       <div className="mt-8 flex flex-wrap items-center gap-3">
         <Icono nombre={trabajadorEditado ? "editar" : "mas"} className="h-7 w-7 text-navy" />
-        <h1 className="text-4xl font-extrabold text-navy">{trabajadorEditado ? "Editar trabajador" : "Nuevo trabajador"}</h1>
+        <h1 className="text-4xl font-extrabold text-navy">{trabajadorEditado ? "Editar colaborador" : "Nuevo colaborador"}</h1>
         {trabajadorEditado && <span className="rounded-full bg-navy px-3 py-1 text-xs font-bold text-white">{trabajadorEditado.id}</span>}
       </div>
-      {trabajadorEditado && <p className="mt-2 text-sm text-slate">Los servicios ya acordados conservan su fecha, hora y precio. El horario no puede dejar fuera servicios pendientes o confirmados.</p>}
+      {trabajadorEditado && <p className="mt-2 text-sm text-slate">Los servicios ya acordados conservan su fecha y hora. El horario no puede dejar fuera servicios pendientes o confirmados.</p>}
 
       <form onSubmit={handleEnviar} noValidate className="surface leaf mt-8 max-w-3xl space-y-5 p-7 sm:p-9">
-        <CampoDeFormulario id="trabajador-nombre" etiqueta="Nombre del trabajador" error={errores.nombre}>
+        <CampoDeFormulario id="trabajador-nombre" etiqueta="Nombre completo" error={errores.nombre}>
           <input id="trabajador-nombre" type="text" autoComplete="name" maxLength={140} value={datos.nombre} onChange={(evento) => cambiarCampo("nombre", evento.target.value)} {...propiedadesDeError("nombre")} className="field" />
         </CampoDeFormulario>
         <div className="grid gap-5 sm:grid-cols-2">
@@ -540,7 +596,7 @@ function FormularioDeTrabajador({ trabajadorEditado, onCancelar, onTerminar }: F
             Cancelar
           </button>
           <button type="submit" disabled={documentoEnRevision !== null} className="btn btn-primary">
-            {trabajadorEditado ? "Guardar cambios" : "Añadir trabajador"}
+            {trabajadorEditado ? "Guardar cambios" : "Añadir colaborador"}
           </button>
         </div>
       </form>
@@ -548,6 +604,7 @@ function FormularioDeTrabajador({ trabajadorEditado, onCancelar, onTerminar }: F
   );
 }
 
+// Colaboradores: lista y formulario
 export function TrabajadoresPage({ onNavegar }: { onNavegar: Navegar }) {
   const { trabajadores } = useTrabajadores();
   const [vista, setVista] = useState<VistaDeTrabajadores>({ tipo: "lista" });
@@ -557,6 +614,7 @@ export function TrabajadoresPage({ onNavegar }: { onNavegar: Navegar }) {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [vista]);
 
+  // Muestra el aviso y vuelve a la lista si salió bien
   function terminarFormulario(resultado: ResultadoDeOperacion) {
     setAviso(resultado);
     if (resultado.exito) {
@@ -564,7 +622,8 @@ export function TrabajadoresPage({ onNavegar }: { onNavegar: Navegar }) {
     }
   }
 
-  let contenido = <ListaDeTrabajadores onAnadir={() => setVista({ tipo: "nuevo" })} onEditar={(idDelTrabajador) => setVista({ tipo: "editar", idDelTrabajador })} onNavegar={onNavegar} />;
+  // Elige qué mostrar: lista o formulario
+  let contenido = <ListaDeTrabajadores onAnadir={() => setVista({ tipo: "nuevo" })} onEditar={(idDelTrabajador) => setVista({ tipo: "editar", idDelTrabajador })} onNavegar={onNavegar} onResultado={setAviso} />;
   if (vista.tipo === "nuevo") {
     contenido = <FormularioDeTrabajador trabajadorEditado={null} onCancelar={() => setVista({ tipo: "lista" })} onTerminar={terminarFormulario} />;
   }

@@ -3,6 +3,7 @@ import { IDS_DE_SECCIONES_DE_LA_LANDING, SECCIONES_DE_LA_LANDING } from "../data
 import { Icono } from "./comunes/Icono";
 import { Logotipo } from "./comunes/FormasOrganicas";
 
+// Detecta qué sección se ve para marcarla en el menú
 function useSeccionVisible(idsDeSecciones: string[]) {
   const [idDeSeccionActiva, setIdDeSeccionActiva] = useState(idsDeSecciones[0]);
   useEffect(() => {
@@ -43,10 +44,12 @@ type BarraDeNavegacionProps = {
   laPaginaDeAccesoEstaActiva?: boolean;
 };
 
+// Barra superior de las páginas públicas
 export function BarraDeNavegacion({ onAcceder, onIrASeccion, textoDelBotonDeAcceso, estaEnLaLanding, laPaginaDeAccesoEstaActiva = false }: BarraDeNavegacionProps) {
   const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
   const idDeSeccionActiva = useSeccionVisible(IDS_DE_SECCIONES_DE_LA_LANDING);
 
+  // Abre el login o el panel y cierra el menú móvil
   function abrirAcceso() {
     setMenuMovilAbierto(false);
     onAcceder();

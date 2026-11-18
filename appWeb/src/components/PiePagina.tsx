@@ -7,6 +7,7 @@ type PiePaginaProps = {
   onAcceder: () => void;
 };
 
+// Pie de página con enlaces a las secciones
 export function PiePagina({ onIrASeccion, onAcceder }: PiePaginaProps) {
   function handleClicEnEnlaceDeSeccion(evento: MouseEvent<HTMLAnchorElement>, idDeSeccion: string) {
     evento.preventDefault();

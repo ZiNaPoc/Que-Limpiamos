@@ -1,22 +1,36 @@
 import { MILISEGUNDOS_POR_MINUTO } from "./fechas";
-import { describirHorario, formatearPrecio } from "./formato";
+import { describirHorario } from "./formato";
 import { horarioCubreLaFecha } from "./horarios";
 import { buscarTrabajador, describirTrabajador } from "../data/trabajadores";
-import type { EstadoDeSolicitud, HorarioDeTrabajo, ResultadoDeOperacion, Solicitud, Trabajador } from "../data/tipos";
+import type { EstadoDeSolicitud, EtapaDeSolicitud, HorarioDeTrabajo, ResultadoDeOperacion, Solicitud, Trabajador } from "../data/tipos";
 
-// Reglas de negocio compartidas con la app móvil:
-// - El administrador no fija precios ni horarios: el precio final lo confirma el colaborador
-//   y el horario lo elige el cliente.
-// - El colaborador solo se puede cambiar antes de que confirme el servicio.
-// - Una solicitud confirmada solo se libera si se cancela.
-
+// Margen entre dos servicios del mismo colaborador
 const SEPARACION_MINIMA_ENTRE_SERVICIOS_EN_MINUTOS = 120;
-const PRECIO_MAXIMO = 100000;
+// Tiempo extra para confirmar después de la hora programada
+const TOLERANCIA_PARA_CONFIRMAR_EN_MINUTOS = 60;
 export const LONGITUD_MINIMA_DEL_MOTIVO = 10;
 export const LONGITUD_MAXIMA_DEL_MOTIVO = 300;
 
 const ESTADOS_ACTIVOS: EstadoDeSolicitud[] = ["Pendiente", "Confirmado"];
 
+// Etapas en orden, de la primera a la última
+export const ETAPAS_DE_SOLICITUD: EtapaDeSolicitud[] = ["Solicitud enviada", "Asignando colaborador", "Servicio confirmado", "Servicio finalizado", "Cancelada"];
+
+// Calcula la etapa a partir del estado y si hay colaborador
+export function obtenerEtapa(solicitud: Solicitud): EtapaDeSolicitud {
+  if (solicitud.estado === "Cancelado") {
+    return "Cancelada";
+  }
+  if (solicitud.estado === "Realizado") {
+    return "Servicio finalizado";
+  }
+  if (solicitud.estado === "Confirmado") {
+    return "Servicio confirmado";
+  }
+  return solicitud.idDelTrabajador ? "Asignando colaborador" : "Solicitud enviada";
+}
+
+// Activa = Pendiente o Confirmado
 export function estaActiva(solicitud: Solicitud): boolean {
   return ESTADOS_ACTIVOS.includes(solicitud.estado);
 }
@@ -29,12 +43,8 @@ function rechazar(mensaje: string): ResultadoDeOperacion {
   return { exito: false, mensaje };
 }
 
-function buscarSolicitudEnConflicto(
-  solicitudes: Solicitud[],
-  idDelTrabajador: string,
-  fechaProgramada: string,
-  idDeSolicitudIgnorada: string,
-): Solicitud | undefined {
+// Busca si el colaborador ya tiene otro servicio muy cerca de esa hora
+function buscarSolicitudEnConflicto(solicitudes: Solicitud[], idDelTrabajador: string, fechaProgramada: string, idDeSolicitudIgnorada: string): Solicitud | undefined {
   const momentoBuscado = new Date(fechaProgramada).getTime();
   return solicitudes.find((solicitud) => {
     const esLaSolicitudIgnorada = solicitud.id === idDeSolicitudIgnorada;
@@ -47,74 +57,77 @@ function buscarSolicitudEnConflicto(
   });
 }
 
-// ───────────── Asignación del colaborador ─────────────
-
+// Texto de ayuda según la etapa
 export function describirEstadoDeLaAsignacion(solicitud: Solicitud): string {
-  if (solicitud.estado === "Cancelado") {
-    if (solicitud.idDelTrabajador) {
-      return "Asignación registrada antes de la cancelación.";
-    }
-    return "La solicitud se canceló sin colaborador asignado.";
+  const etapa = obtenerEtapa(solicitud);
+  if (etapa === "Cancelada") {
+    return solicitud.idDelTrabajador ? "Asignación registrada antes de la cancelación." : "Se canceló sin colaborador asignado.";
   }
-  if (solicitud.estado === "Realizado") {
-    return "Servicio realizado.";
+  if (etapa === "Servicio finalizado") {
+    return "Servicio finalizado.";
   }
-  if (solicitud.estado === "Confirmado") {
-    return "El colaborador confirmó el servicio. La asignación queda bloqueada.";
+  if (etapa === "Servicio confirmado") {
+    return "Servicio confirmado. La asignación queda bloqueada.";
   }
-  if (solicitud.idDelTrabajador) {
+  if (etapa === "Asignando colaborador") {
     if (solicitud.modoDeEleccion === "Cliente") {
-      return "El cliente lo eligió desde la app. Falta que el colaborador confirme.";
+      return "El cliente lo eligió personalmente. Falta confirmar el servicio.";
     }
-    return "Asignado. Falta que el colaborador confirme.";
+    return "Colaborador asignado. Falta confirmar el servicio.";
   }
   if (solicitud.modoDeEleccion === "Automática") {
-    return "La asignación automática no encontró colaborador disponible. Requiere asignación manual.";
+    return "El cliente pidió asignación automática. Asigna un colaborador disponible.";
   }
   return "Todavía no hay colaborador asignado.";
 }
 
+// Solo se cambia colaborador mientras esté Pendiente
 export function evaluarCambioDeTrabajador(solicitud: Solicitud): ResultadoDeOperacion {
   if (solicitud.estado === "Cancelado") {
     return rechazar("La solicitud está cancelada; la asignación ya no se puede cambiar.");
   }
   if (solicitud.estado === "Realizado") {
-    return rechazar("Este servicio ya se realizó, por eso no se puede cambiar el colaborador.");
+    return rechazar("El servicio ya finalizó; la asignación ya no se puede cambiar.");
   }
   if (solicitud.estado === "Confirmado") {
-    return rechazar("El colaborador ya confirmó el servicio. La asignación solo se libera si la solicitud se cancela.");
+    return rechazar("El servicio ya está confirmado. La asignación solo se libera si la solicitud se cancela.");
   }
   return permitir();
 }
 
 export type DisponibilidadDelTrabajador = {
   trabajador: Trabajador;
+  estaInactivo: boolean;
   estaOcupado: boolean;
   fueraDeHorario: boolean;
   tieneLaEspecialidad: boolean;
 };
 
+// Revisa si el colaborador está inactivo, ocupado o fuera de horario
 export function evaluarDisponibilidad(solicitudes: Solicitud[], trabajador: Trabajador, solicitud: Solicitud): DisponibilidadDelTrabajador {
   return {
     trabajador,
+    estaInactivo: trabajador.estado === "Inactivo",
     estaOcupado: Boolean(buscarSolicitudEnConflicto(solicitudes, trabajador.id, solicitud.fechaProgramada, solicitud.id)),
     fueraDeHorario: !horarioCubreLaFecha(trabajador.horario, solicitud.fechaProgramada),
     tieneLaEspecialidad: trabajador.especialidades.includes(solicitud.idDelServicio),
   };
 }
 
+// Puede atender si no tiene ninguna de esas tres razones
+export function puedeAtender(disponibilidad: DisponibilidadDelTrabajador): boolean {
+  return !disponibilidad.estaInactivo && !disponibilidad.estaOcupado && !disponibilidad.fueraDeHorario;
+}
+
+// Lista a los disponibles y con la especialidad primero
 export function listarTrabajadoresConDisponibilidad(solicitudes: Solicitud[], trabajadores: Trabajador[], solicitud: Solicitud): DisponibilidadDelTrabajador[] {
   return trabajadores
     .map((trabajador) => evaluarDisponibilidad(solicitudes, trabajador, solicitud))
-    .sort((a, b) => Number(b.tieneLaEspecialidad) - Number(a.tieneLaEspecialidad));
+    .sort((a, b) => Number(puedeAtender(b)) - Number(puedeAtender(a)) || Number(b.tieneLaEspecialidad) - Number(a.tieneLaEspecialidad));
 }
 
-export function validarCambioDeTrabajador(
-  solicitud: Solicitud,
-  idDelTrabajadorNuevo: string | null,
-  solicitudes: Solicitud[],
-  trabajadores: Trabajador[],
-): ResultadoDeOperacion {
+// Todas las validaciones antes de asignar un colaborador
+export function validarCambioDeTrabajador(solicitud: Solicitud, idDelTrabajadorNuevo: string | null, solicitudes: Solicitud[], trabajadores: Trabajador[]): ResultadoDeOperacion {
   const permiso = evaluarCambioDeTrabajador(solicitud);
   if (!permiso.exito) {
     return permiso;
@@ -127,7 +140,10 @@ export function validarCambioDeTrabajador(
   }
   const trabajador = buscarTrabajador(trabajadores, idDelTrabajadorNuevo);
   if (!trabajador) {
-    return rechazar("El colaborador elegido no existe en la lista de trabajadores.");
+    return rechazar("El colaborador elegido no existe.");
+  }
+  if (trabajador.estado === "Inactivo") {
+    return rechazar(`${trabajador.nombre} está inactivo y no puede recibir solicitudes.`);
   }
   if (!horarioCubreLaFecha(trabajador.horario, solicitud.fechaProgramada)) {
     return rechazar(`${trabajador.nombre} no trabaja en el horario que eligió el cliente.`);
@@ -152,81 +168,70 @@ export function describirCambioDeTrabajador(solicitud: Solicitud, idDelTrabajado
   if (trabajadorNuevo && !trabajadorNuevo.especialidades.includes(solicitud.idDelServicio)) {
     lineas.push(`${trabajadorNuevo.nombre} no tiene «${solicitud.servicio}» entre sus especialidades.`);
   }
-  lineas.push("El horario y el precio no cambian. El nuevo colaborador todavía debe confirmar el servicio.");
+  lineas.push("La fecha y la hora no cambian. Después falta confirmar el servicio.");
   return lineas;
 }
 
-// ───────────── Precio confirmado por el colaborador ─────────────
-
-export type DatosDeAcuerdoDePrecio = {
-  precio: string;
-  aceptadoPorElCliente: boolean;
-  aceptadoPorElTrabajador: boolean;
-};
-
-export type ErroresDelAcuerdoDePrecio = {
-  precio?: string;
-  aceptaciones?: string;
-};
-
-export function evaluarRegistroDeAcuerdoDePrecio(solicitud: Solicitud): ResultadoDeOperacion {
-  if (solicitud.estado === "Cancelado") {
-    return rechazar("La solicitud está cancelada, por eso no se puede registrar un precio.");
+// Para confirmar: debe haber colaborador activo y no pasar el límite de tiempo
+export function evaluarConfirmacion(solicitud: Solicitud, trabajadores: Trabajador[], ahora: Date): ResultadoDeOperacion {
+  if (solicitud.estado !== "Pendiente") {
+    return rechazar("Solo se confirma una solicitud que está asignando colaborador.");
   }
-  if (solicitud.estado === "Realizado") {
-    return rechazar("Este servicio ya se realizó, por eso no se puede registrar un precio.");
+  const trabajador = buscarTrabajador(trabajadores, solicitud.idDelTrabajador);
+  if (!trabajador) {
+    return rechazar("Primero asigna un colaborador.");
   }
-  if (solicitud.estado !== "Confirmado" || !solicitud.idDelTrabajador) {
-    return rechazar("El precio final lo confirma el colaborador al revisar el servicio. Primero debe confirmar la asignación.");
+  if (trabajador.estado === "Inactivo") {
+    return rechazar(`${trabajador.nombre} está inactivo. Asigna otro colaborador antes de confirmar.`);
+  }
+  const limite = new Date(solicitud.fechaProgramada).getTime() + TOLERANCIA_PARA_CONFIRMAR_EN_MINUTOS * MILISEGUNDOS_POR_MINUTO;
+  if (ahora.getTime() > limite) {
+    return rechazar("La fecha del servicio ya pasó. Cancélala para que el cliente pueda reagendar.");
   }
   return permitir();
 }
 
-export function validarAcuerdoDePrecio(solicitud: Solicitud, datos: DatosDeAcuerdoDePrecio): ErroresDelAcuerdoDePrecio {
-  const errores: ErroresDelAcuerdoDePrecio = {};
-  const textoDelPrecio = datos.precio.trim();
-  const precio = Number(textoDelPrecio);
-  if (textoDelPrecio === "" || !Number.isFinite(precio) || precio <= 0) {
-    errores.precio = "Escribe un precio mayor a cero.";
-  } else if (precio > PRECIO_MAXIMO) {
-    errores.precio = "El precio no puede superar $100,000.";
-  } else if (solicitud.acuerdoDePrecio && solicitud.acuerdoDePrecio.precio === precio) {
-    errores.precio = "Ese precio ya es el acordado.";
-  }
-  if (!datos.aceptadoPorElCliente || !datos.aceptadoPorElTrabajador) {
-    errores.aceptaciones = "Para registrar el precio deben haberlo aceptado el cliente y el colaborador.";
-  }
-  return errores;
-}
-
-export function aplicarAcuerdoDePrecio(solicitud: Solicitud, precio: number, ahora: Date): Solicitud {
-  return { ...solicitud, acuerdoDePrecio: { precio, fechaDeRegistro: ahora.toISOString() } };
-}
-
-export function describirAcuerdoDePrecio(solicitud: Solicitud, precio: number): string[] {
-  let precioAnterior = "Pendiente de confirmar";
-  if (solicitud.acuerdoDePrecio) {
-    precioAnterior = formatearPrecio(solicitud.acuerdoDePrecio.precio);
-  }
+export function describirConfirmacion(solicitud: Solicitud, trabajadores: Trabajador[]): string[] {
+  const trabajador = buscarTrabajador(trabajadores, solicitud.idDelTrabajador);
   return [
-    `Precio final: ${precioAnterior} → ${formatearPrecio(precio)}`,
-    `El precio estimado (${formatearPrecio(solicitud.precioEstimado)}) se conserva como referencia.`,
-    "Sin backend, el registro solo dura mientras esta pestaña siga abierta.",
+    "Seguimiento: Asignando colaborador → Servicio confirmado",
+    `Colaborador: ${trabajador ? trabajador.nombre : "—"}`,
+    "El cliente verá «Tu servicio fue confirmado» en Avisos y podrá contactar al colaborador para acordar los detalles.",
+    "Después de confirmar ya no se puede cambiar el colaborador.",
   ];
 }
 
-// ───────────── Cancelación ─────────────
+// Para finalizar: debe estar confirmado y ya haber llegado la hora
+export function evaluarFinalizacion(solicitud: Solicitud, ahora: Date): ResultadoDeOperacion {
+  if (solicitud.estado !== "Confirmado") {
+    return rechazar("Solo se finaliza un servicio confirmado.");
+  }
+  if (new Date(solicitud.fechaProgramada).getTime() > ahora.getTime()) {
+    return rechazar("El servicio aún no empieza. Podrás marcarlo como finalizado a partir de la hora programada.");
+  }
+  return permitir();
+}
 
+export function describirFinalizacion(): string[] {
+  return ["Seguimiento: Servicio confirmado → Servicio finalizado", "La app le pedirá al cliente que califique el servicio («Califica tu servicio»).", "Una vez finalizado ya no se puede cancelar."];
+}
+
+export function aplicarEstado(solicitud: Solicitud, estado: EstadoDeSolicitud): Solicitud {
+  return { ...solicitud, estado };
+}
+
+// No se cancela si ya está cancelada o finalizada
 export function evaluarCancelacion(solicitud: Solicitud): ResultadoDeOperacion {
   if (solicitud.estado === "Cancelado") {
     return rechazar("La solicitud ya está cancelada.");
   }
   if (solicitud.estado === "Realizado") {
-    return rechazar("El servicio ya se realizó; si hubo un problema, se atiende como reporte.");
+    return rechazar("El servicio ya finalizó; no se puede cancelar.");
   }
   return permitir();
 }
 
+// El motivo debe tener un largo válido
 export function validarMotivoDeCancelacion(motivo: string): string | undefined {
   const motivoLimpio = motivo.trim();
   if (motivoLimpio.length < LONGITUD_MINIMA_DEL_MOTIVO) {
@@ -238,6 +243,7 @@ export function validarMotivoDeCancelacion(motivo: string): string | undefined {
   return undefined;
 }
 
+// Marca la cancelación hecha por Administración
 export function aplicarCancelacion(solicitud: Solicitud, motivo: string, ahora: Date): Solicitud {
   return {
     ...solicitud,
@@ -248,17 +254,18 @@ export function aplicarCancelacion(solicitud: Solicitud, motivo: string, ahora: 
 
 export function describirCancelacion(solicitud: Solicitud, motivo: string, claveDeHoy: string): string[] {
   return [
-    `Estado: ${solicitud.estado} → Cancelado`,
+    `Seguimiento: ${obtenerEtapa(solicitud)} → Cancelada`,
     `Servicio programado: ${describirHorario(solicitud.fechaProgramada, claveDeHoy)}`,
     `Motivo: ${motivo.trim()}`,
-    "Es definitivo: si el cliente aún necesita el servicio, debe reagendarlo desde la app.",
+    "Es definitivo: si el cliente aún necesita el servicio, deberá solicitarlo de nuevo desde la app.",
   ];
 }
 
-// ───────────── Horario del colaborador ─────────────
-
-// Cambiar el horario general de un colaborador no puede dejar fuera servicios ya acordados
-// (pendientes o confirmados, aunque ya hayan empezado).
+// Servicios activos que chocarían con un nuevo horario del colaborador
 export function buscarServiciosFueraDelHorario(solicitudes: Solicitud[], idDelTrabajador: string, horario: HorarioDeTrabajo): Solicitud[] {
   return solicitudes.filter((solicitud) => solicitud.idDelTrabajador === idDelTrabajador && estaActiva(solicitud) && !horarioCubreLaFecha(horario, solicitud.fechaProgramada));
+}
+
+export function buscarServiciosActivosDelTrabajador(solicitudes: Solicitud[], idDelTrabajador: string): Solicitud[] {
+  return solicitudes.filter((solicitud) => solicitud.idDelTrabajador === idDelTrabajador && estaActiva(solicitud));
 }

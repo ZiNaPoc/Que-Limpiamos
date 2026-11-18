@@ -8,9 +8,8 @@ const OPCIONES_DE_NAVEGACION: { idDeVista: VistaDelPanel; etiqueta: string; icon
   { idDeVista: "inicio", etiqueta: "Inicio", icono: "inicio" },
   { idDeVista: "solicitudes", etiqueta: "Solicitudes", icono: "bandeja" },
   { idDeVista: "clientes", etiqueta: "Clientes", icono: "clientes" },
-  { idDeVista: "trabajadores", etiqueta: "Trabajadores", icono: "trabajadores" },
+  { idDeVista: "trabajadores", etiqueta: "Colaboradores", icono: "trabajadores" },
   { idDeVista: "catalogo", etiqueta: "Catálogo", icono: "catalogo" },
-  { idDeVista: "reportes", etiqueta: "Reportes", icono: "reportes" },
   { idDeVista: "resenas", etiqueta: "Reseñas", icono: "estrella" },
 ];
 
@@ -31,6 +30,7 @@ type BotonDelMenuProps = {
   onClick: () => void;
 };
 
+// Botón del menú con su ícono
 function BotonDelMenu({ icono, etiqueta, estaExpandido, estaActivo = false, onClick }: BotonDelMenuProps) {
   let claseDeColor = "text-sky hover:bg-white/10 hover:text-white";
   if (estaActivo) {
@@ -59,9 +59,11 @@ type MenuLateralProps = {
   onCerrarSesion: () => void;
 };
 
+// Menú del panel: se expande al pasar el cursor o con el teclado
 export function MenuLateral({ sesion, vistaActiva, esCompacto, cajonAbierto, onNavegar, onCerrarCajon, onIrAQuienesSomos, onCerrarSesion }: MenuLateralProps) {
   const [cursorSobreElMenu, setCursorSobreElMenu] = useState(false);
   const [menuTieneFocoDeTeclado, setMenuTieneFocoDeTeclado] = useState(false);
+  // En pantallas chicas funciona como cajón y atrapa el foco
   const menuRef = useAtrapaFoco<HTMLElement>(!esCompacto && cajonAbierto, onCerrarCajon);
 
   let estaExpandido = true;
@@ -138,7 +140,7 @@ export function MenuLateral({ sesion, vistaActiva, esCompacto, cajonAbierto, onN
         <span className="pebble grid h-12 w-12 shrink-0 place-items-center bg-sky font-display text-lg font-extrabold text-oxford">{sesion.nombre.charAt(0)}</span>
         <span aria-hidden className={`whitespace-nowrap transition duration-300 ease-soft ${claseDeLaEtiqueta}`}>
           <span className="block text-sm font-bold text-white">Perfil</span>
-          <span className="block text-xs text-frost">@{sesion.nombreDeUsuario}</span>
+          <span className="block max-w-40 truncate text-xs text-frost">{sesion.correo}</span>
         </span>
       </button>
 

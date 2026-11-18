@@ -4,6 +4,7 @@ type TarjetaDeIndicadorProps = {
   descripcion?: string;
 };
 
+// Tarjeta con un número y su descripción
 export function TarjetaDeIndicador({ etiqueta, valor, descripcion }: TarjetaDeIndicadorProps) {
   return (
     <div className="surface leaf-sm p-5 sm:p-6">

@@ -7,7 +7,7 @@ const DURACION_DE_REFERENCIA_EN_MINUTOS = 120;
 
 export type Reputacion = { promedio: number | null; cantidad: number };
 
-// La reputación sale de las calificaciones que dan los clientes en «Califica tu servicio».
+// Promedio de calificaciones de sus servicios
 export function calcularReputacion(solicitudes: Solicitud[], idDelTrabajador: string): Reputacion {
   const puntuaciones = solicitudes
     .filter((solicitud) => solicitud.idDelTrabajador === idDelTrabajador && solicitud.calificacion)
@@ -27,9 +27,13 @@ export function describirReputacion(reputacion: Reputacion): string {
   return `${reputacion.promedio.toFixed(1)} de 5 · ${reputacion.cantidad} ${textoDeCalificaciones}`;
 }
 
-export type EstadoDelTrabajador = "Disponible" | "En servicio" | "Fuera de horario";
+export type EstadoDelTrabajador = "Disponible" | "En servicio" | "Fuera de horario" | "Inactivo";
 
+// Estado actual: disponible, en servicio, fuera de horario o inactivo
 export function calcularEstadoDelTrabajador(solicitudes: Solicitud[], trabajador: Trabajador, ahora: Date): EstadoDelTrabajador {
+  if (trabajador.estado === "Inactivo") {
+    return "Inactivo";
+  }
   const momento = ahora.getTime();
   const estaEnUnServicio = solicitudes.some((solicitud) => {
     if (solicitud.idDelTrabajador !== trabajador.id || solicitud.estado !== "Confirmado") {

@@ -1,3 +1,4 @@
+// Todas las fechas usan la hora de Cancún
 export const ZONA_HORARIA_DE_LA_APP = "America/Cancun";
 const DESFASE_UTC_DE_LA_APP = "-05:00";
 export const MILISEGUNDOS_POR_MINUTO = 60 * 1000;

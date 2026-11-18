@@ -60,6 +60,7 @@ function describirDia(fechaIso: string, claveDeHoy: string): string {
   return formatearFechaCorta(fechaIso);
 }
 
+// Texto como "Hoy, 10:00" para mostrar el horario
 export function describirHorario(fechaIso: string, claveDeHoy: string): string {
   return `${describirDia(fechaIso, claveDeHoy)} · ${formatearHora(fechaIso)}`;
 }
@@ -92,6 +93,7 @@ export function normalizarTexto(texto: string): string {
     .trim();
 }
 
+// Crea el siguiente id (por ejemplo TR-004)
 export function crearSiguienteId(idsExistentes: string[], prefijo: string, digitos: number): string {
   const numerosUsados = idsExistentes.map((id) => Number(id.replace(`${prefijo}-`, ""))).filter((numero) => Number.isInteger(numero));
   const siguienteNumero = Math.max(0, ...numerosUsados) + 1;

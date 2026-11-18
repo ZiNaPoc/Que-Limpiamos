@@ -2,7 +2,8 @@ import { describirHorario, describirTiempoDesdeCreacion } from "../../utils/form
 import { useClientes, buscarCliente } from "../../data/ClientesContext";
 import { useTrabajadores } from "../../data/TrabajadoresContext";
 import { buscarTrabajador } from "../../data/trabajadores";
-import type { EstadoDeSolicitud, Solicitud } from "../../data/tipos";
+import type { EtapaDeSolicitud, Solicitud } from "../../data/tipos";
+import { obtenerEtapa } from "../../utils/reglasDeSolicitudes";
 import { InsigniaDeEstado } from "../comunes/Insignias";
 
 type ListaDeSolicitudesProps = {
@@ -12,18 +13,20 @@ type ListaDeSolicitudesProps = {
   onAbrirSolicitud: (idDeSolicitud: string) => void;
 };
 
-const COLOR_DEL_BORDE_POR_ESTADO: Record<EstadoDeSolicitud, string> = {
-  Pendiente: "border-ochre",
-  Confirmado: "border-steel",
-  Realizado: "border-sage",
-  Cancelado: "border-frost",
+const COLOR_DEL_BORDE_POR_ETAPA: Record<EtapaDeSolicitud, string> = {
+  "Solicitud enviada": "border-ochre",
+  "Asignando colaborador": "border-lagoon",
+  "Servicio confirmado": "border-steel",
+  "Servicio finalizado": "border-sage",
+  Cancelada: "border-frost",
 };
 
+// Muestra el colaborador asignado, o que falta asignar
 function NombreDelTrabajadorAsignado({ solicitud }: { solicitud: Solicitud }) {
   const { trabajadores } = useTrabajadores();
   const trabajador = buscarTrabajador(trabajadores, solicitud.idDelTrabajador);
   if (!trabajador) {
-    if (solicitud.estado === "Pendiente") {
+    if (obtenerEtapa(solicitud) === "Solicitud enviada") {
       return <span className="font-bold text-clay">Sin asignar</span>;
     }
     return <span className="text-slate">—</span>;
@@ -31,11 +34,12 @@ function NombreDelTrabajadorAsignado({ solicitud }: { solicitud: Solicitud }) {
   return (
     <span>
       {trabajador.nombre}
-      {solicitud.estado === "Pendiente" && <span className="block text-xs text-clay">Sin confirmar</span>}
+      <span className="block text-xs text-slate">{solicitud.modoDeEleccion === "Cliente" ? "Elegido por el cliente" : "Asignación automática"}</span>
     </span>
   );
 }
 
+// Nombre del cliente de la solicitud
 function DatosDelCliente({ idDelCliente }: { idDelCliente: string }) {
   const { clientes } = useClientes();
   const cliente = buscarCliente(clientes, idDelCliente);
@@ -47,6 +51,7 @@ function DatosDelCliente({ idDelCliente }: { idDelCliente: string }) {
   );
 }
 
+// Tarjetas de solicitudes; al hacer clic se abre el detalle
 export function ListaDeSolicitudes({ solicitudes, ahora, claveDeHoy, onAbrirSolicitud }: ListaDeSolicitudesProps) {
   return (
     <>
@@ -60,13 +65,13 @@ export function ListaDeSolicitudes({ solicitudes, ahora, claveDeHoy, onAbrirSoli
               <th scope="col" className="px-4 py-4 font-bold">Horario</th>
               <th scope="col" className="hidden px-4 py-4 font-bold xl:table-cell">Solicitada</th>
               <th scope="col" className="hidden px-4 py-4 font-bold lg:table-cell">Colaborador</th>
-              <th scope="col" className="px-6 py-4 font-bold">Estado</th>
+              <th scope="col" className="px-6 py-4 font-bold">Seguimiento</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-mist/70">
             {solicitudes.map((solicitud) => (
               <tr key={solicitud.id} onClick={() => onAbrirSolicitud(solicitud.id)} className="cursor-pointer transition duration-300 hover:bg-sky/25">
-                <td className={`border-l-4 px-6 py-4 ${COLOR_DEL_BORDE_POR_ESTADO[solicitud.estado]}`}>
+                <td className={`border-l-4 px-6 py-4 ${COLOR_DEL_BORDE_POR_ETAPA[obtenerEtapa(solicitud)]}`}>
                   <button
                     onClick={(evento) => {
                       evento.stopPropagation();
@@ -88,7 +93,7 @@ export function ListaDeSolicitudes({ solicitudes, ahora, claveDeHoy, onAbrirSoli
                   <NombreDelTrabajadorAsignado solicitud={solicitud} />
                 </td>
                 <td className="px-6 py-4">
-                  <InsigniaDeEstado estado={solicitud.estado} />
+                  <InsigniaDeEstado estado={obtenerEtapa(solicitud)} />
                 </td>
               </tr>
             ))}
@@ -99,10 +104,10 @@ export function ListaDeSolicitudes({ solicitudes, ahora, claveDeHoy, onAbrirSoli
       <ul className="space-y-4 md:hidden">
         {solicitudes.map((solicitud) => (
           <li key={solicitud.id}>
-            <button onClick={() => onAbrirSolicitud(solicitud.id)} className={`surface leaf-sm w-full cursor-pointer border-l-4 p-5 text-left transition duration-300 active:scale-[0.99] ${COLOR_DEL_BORDE_POR_ESTADO[solicitud.estado]}`}>
+            <button onClick={() => onAbrirSolicitud(solicitud.id)} className={`surface leaf-sm w-full cursor-pointer border-l-4 p-5 text-left transition duration-300 active:scale-[0.99] ${COLOR_DEL_BORDE_POR_ETAPA[obtenerEtapa(solicitud)]}`}>
               <span className="flex items-center justify-between gap-3">
                 <span className="rounded-full bg-navy px-3 py-1 text-xs font-bold text-white">{solicitud.id}</span>
-                <InsigniaDeEstado estado={solicitud.estado} />
+                <InsigniaDeEstado estado={obtenerEtapa(solicitud)} />
               </span>
               <span className="mt-3 block">
                 <DatosDelCliente idDelCliente={solicitud.idDelCliente} />

@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react";
 const SELECTOR_DE_ELEMENTOS_ENFOCABLES =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+// Mantiene el teclado dentro de la ventana modal y cierra con Esc
 export function useAtrapaFoco<T extends HTMLElement>(estaActivo: boolean, alCerrar: () => void) {
   const contenedorRef = useRef<T>(null);
   const alCerrarRef = useRef(alCerrar);
@@ -13,6 +14,7 @@ export function useAtrapaFoco<T extends HTMLElement>(estaActivo: boolean, alCerr
     if (!estaActivo || !contenedor) {
       return;
     }
+    // Recuerda dónde estaba el foco para devolverlo al cerrar
     const elementoConFocoPrevio = document.activeElement as HTMLElement | null;
     const temporizadorDelFoco = window.setTimeout(() => {
       const primerElemento = contenedor.querySelector<HTMLElement>(SELECTOR_DE_ELEMENTOS_ENFOCABLES);

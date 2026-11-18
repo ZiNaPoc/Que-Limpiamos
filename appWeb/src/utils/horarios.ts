@@ -1,7 +1,6 @@
 import { horaParaCampoDeTiempo, ZONA_HORARIA_DE_LA_APP } from "./fechas";
 import type { HorarioDeTrabajo } from "../data/tipos";
 
-// Orden de lunes a domingo, con la numeración de Date.getDay().
 export const DIAS_DE_LA_SEMANA = [
   { numero: 1, corto: "Lun", largo: "Lunes" },
   { numero: 2, corto: "Mar", largo: "Martes" },
@@ -46,7 +45,7 @@ export function describirHorarioDeTrabajo(horario: HorarioDeTrabajo): string {
   return `${describirDias(horario.dias)} · ${formatearHoraDelCampo(horario.horaDeInicio)} – ${formatearHoraDelCampo(horario.horaDeFin)}`;
 }
 
-// El servicio debe empezar en un día y una hora dentro del horario del trabajador.
+// Revisa si la fecha cae en un día y hora de trabajo
 export function horarioCubreLaFecha(horario: HorarioDeTrabajo, fechaIso: string): boolean {
   if (!horario.dias.includes(diaDeLaSemanaEnCancun(fechaIso))) {
     return false;
@@ -55,6 +54,7 @@ export function horarioCubreLaFecha(horario: HorarioDeTrabajo, fechaIso: string)
   return hora >= horario.horaDeInicio && hora < horario.horaDeFin;
 }
 
+// Valida días y horas del formulario
 export function validarHorario(horario: HorarioDeTrabajo): string | undefined {
   if (horario.dias.length === 0) {
     return "Elige al menos un día de trabajo.";

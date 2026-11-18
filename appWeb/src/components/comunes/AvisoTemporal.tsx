@@ -7,6 +7,7 @@ type AvisoTemporalProps = {
   onTerminar: () => void;
 };
 
+// Mensaje breve de éxito o error que se quita solo
 export function AvisoTemporal({ aviso, onTerminar }: AvisoTemporalProps) {
   const onTerminarRef = useRef(onTerminar);
   onTerminarRef.current = onTerminar;

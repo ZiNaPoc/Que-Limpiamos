@@ -1,10 +1,10 @@
 import type { Sesion } from "../data/tipos";
 
+// Datos de la persona con sesión iniciada
 export function PerfilPage({ sesion }: { sesion: Sesion }) {
   const datosDelPerfil = [
-    ["Usuario", `@${sesion.nombreDeUsuario}`],
     ["Correo", sesion.correo],
-    ["Rol", "Administrador"],
+    ["Rol", sesion.rol === "ADMIN" || !sesion.rol ? "Administrador" : sesion.rol],
   ];
   return (
     <div>
@@ -20,7 +20,7 @@ export function PerfilPage({ sesion }: { sesion: Sesion }) {
             </div>
           ))}
         </dl>
-        <p className="mt-5 rounded-2xl bg-moon p-4 text-xs text-clay">Sesión de demostración guardada solo en esta pestaña. No es un sistema de autenticación seguro.</p>
+        <p className="mt-5 rounded-2xl bg-moon p-4 text-xs text-clay">Sesión iniciada con tu correo y contraseña de administrador.</p>
       </div>
     </div>
   );

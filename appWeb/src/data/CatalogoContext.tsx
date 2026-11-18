@@ -1,20 +1,12 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { crearSiguienteId, normalizarTexto } from "../utils/formato";
 import { SERVICIOS_DE_DEMOSTRACION } from "./catalogoDemo";
-import type { CategoriaDeServicio, DatosDeServicio, ResultadoDeOperacion, ServicioDelCatalogo } from "./tipos";
-
-export const CATEGORIAS_DE_SERVICIO: { valor: CategoriaDeServicio; etiqueta: string }[] = [
-  { valor: "Principal", etiqueta: "Servicio principal" },
-  { valor: "Extra", etiqueta: "Servicio extra" },
-];
+import type { DatosDeServicio, ResultadoDeOperacion, ServicioDelCatalogo } from "./tipos";
 
 export type BorradorDeServicio = {
   nombre: string;
   descripcion: string;
   precioBase: string;
-  costoPorMetroCuadrado: string;
-  costoPorHabitacion: string;
-  categoria: string;
 };
 
 export type ErroresDelServicio = Partial<Record<keyof BorradorDeServicio, string>>;
@@ -23,9 +15,6 @@ export const BORRADOR_DE_SERVICIO_VACIO: BorradorDeServicio = {
   nombre: "",
   descripcion: "",
   precioBase: "",
-  costoPorMetroCuadrado: "",
-  costoPorHabitacion: "",
-  categoria: "",
 };
 
 const LONGITUD_MAXIMA_DEL_NOMBRE = 60;
@@ -37,13 +26,10 @@ export function crearBorradorDesdeServicio(servicio: ServicioDelCatalogo): Borra
     nombre: servicio.nombre,
     descripcion: servicio.descripcion,
     precioBase: String(servicio.precioBase),
-    costoPorMetroCuadrado: String(servicio.costoPorMetroCuadrado),
-    costoPorHabitacion: String(servicio.costoPorHabitacion),
-    categoria: servicio.categoria,
   };
 }
 
-function validarMonto(texto: string, puedeSerCero: boolean): string | undefined {
+function validarMonto(texto: string): string | undefined {
   const textoLimpio = texto.trim();
   const monto = Number(textoLimpio);
   if (textoLimpio === "" || !Number.isFinite(monto)) {
@@ -52,7 +38,7 @@ function validarMonto(texto: string, puedeSerCero: boolean): string | undefined 
   if (monto < 0) {
     return "La cantidad no puede ser negativa.";
   }
-  if (monto === 0 && !puedeSerCero) {
+  if (monto === 0) {
     return "La cantidad debe ser mayor a cero.";
   }
   if (monto > MONTO_MAXIMO) {
@@ -64,10 +50,7 @@ function validarMonto(texto: string, puedeSerCero: boolean): string | undefined 
   return undefined;
 }
 
-function esCategoriaValida(categoria: string): categoria is CategoriaDeServicio {
-  return CATEGORIAS_DE_SERVICIO.some((opcion) => opcion.valor === categoria);
-}
-
+// Valida el formulario del servicio (nombre sin repetir, precio válido)
 export function validarServicio(borrador: BorradorDeServicio, servicios: ServicioDelCatalogo[], idDelServicioEditado: string | null): ErroresDelServicio {
   const errores: ErroresDelServicio = {};
   const nombre = borrador.nombre.trim();
@@ -91,37 +74,18 @@ export function validarServicio(borrador: BorradorDeServicio, servicios: Servici
     errores.descripcion = `Usa como máximo ${LONGITUD_MAXIMA_DE_LA_DESCRIPCION} caracteres.`;
   }
 
-  const errorDelPrecioBase = validarMonto(borrador.precioBase, false);
+  const errorDelPrecioBase = validarMonto(borrador.precioBase);
   if (errorDelPrecioBase) {
     errores.precioBase = errorDelPrecioBase;
-  }
-  const errorDelCostoPorMetro = validarMonto(borrador.costoPorMetroCuadrado, true);
-  if (errorDelCostoPorMetro) {
-    errores.costoPorMetroCuadrado = errorDelCostoPorMetro;
-  }
-  const errorDelCostoPorHabitacion = validarMonto(borrador.costoPorHabitacion, true);
-  if (errorDelCostoPorHabitacion) {
-    errores.costoPorHabitacion = errorDelCostoPorHabitacion;
-  }
-
-  if (!esCategoriaValida(borrador.categoria)) {
-    errores.categoria = "Elige una categoría.";
   }
   return errores;
 }
 
 function convertirBorradorEnDatos(borrador: BorradorDeServicio): DatosDeServicio {
-  let categoria: CategoriaDeServicio = "Principal";
-  if (esCategoriaValida(borrador.categoria)) {
-    categoria = borrador.categoria;
-  }
   return {
     nombre: borrador.nombre.replace(/\s+/g, " ").trim(),
     descripcion: borrador.descripcion.replace(/\s+/g, " ").trim(),
     precioBase: Number(borrador.precioBase),
-    costoPorMetroCuadrado: Number(borrador.costoPorMetroCuadrado),
-    costoPorHabitacion: Number(borrador.costoPorHabitacion),
-    categoria,
   };
 }
 
@@ -136,9 +100,11 @@ const CatalogoContext = createContext<ValorDelContextoDelCatalogo | null>(null);
 
 const MENSAJE_DE_DATOS_INVALIDOS: ResultadoDeOperacion = { exito: false, mensaje: "Revisa los datos marcados antes de guardar." };
 
+// Guarda el catálogo de servicios
 export function CatalogoProvider({ children }: { children: ReactNode }) {
   const [servicios, setServicios] = useState<ServicioDelCatalogo[]>(SERVICIOS_DE_DEMOSTRACION);
 
+  // Alta de un servicio nuevo
   function registrarServicio(borrador: BorradorDeServicio): ResultadoDeOperacion {
     if (Object.keys(validarServicio(borrador, servicios, null)).length > 0) {
       return MENSAJE_DE_DATOS_INVALIDOS;
@@ -156,6 +122,7 @@ export function CatalogoProvider({ children }: { children: ReactNode }) {
     return { exito: true, mensaje: `«${nuevoServicio.nombre}» se registró en el catálogo.` };
   }
 
+  // Edita un servicio existente
   function editarServicio(idDelServicio: string, borrador: BorradorDeServicio): ResultadoDeOperacion {
     const servicioOriginal = servicios.find((servicio) => servicio.id === idDelServicio);
     if (!servicioOriginal) {
@@ -169,7 +136,7 @@ export function CatalogoProvider({ children }: { children: ReactNode }) {
     return { exito: true, mensaje: "Cambios aplicados al catálogo. Las solicitudes existentes conservan sus condiciones." };
   }
 
-  // Un servicio inactivo deja de mostrarse en la app; las solicitudes que ya lo usan no cambian.
+  // Activa o desactiva un servicio
   function cambiarEstadoDelServicio(idDelServicio: string): ResultadoDeOperacion {
     const servicio = servicios.find((servicioBuscado) => servicioBuscado.id === idDelServicio);
     if (!servicio) {

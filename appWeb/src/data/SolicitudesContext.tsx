@@ -1,28 +1,24 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import {
-  aplicarAcuerdoDePrecio,
   aplicarCancelacion,
   aplicarCambioDeTrabajador,
+  aplicarEstado,
   evaluarCancelacion,
-  evaluarRegistroDeAcuerdoDePrecio,
-  validarAcuerdoDePrecio,
+  evaluarConfirmacion,
+  evaluarFinalizacion,
   validarCambioDeTrabajador,
   validarMotivoDeCancelacion,
-  type DatosDeAcuerdoDePrecio,
 } from "../utils/reglasDeSolicitudes";
 import { crearSolicitudesDeDemostracion } from "./solicitudesDemo";
 import { useTrabajadores } from "./TrabajadoresContext";
 import type { ResultadoDeOperacion, Solicitud } from "./tipos";
 
-// Las solicitudes las crea el cliente desde la app móvil. El panel no las crea ni edita su
-// servicio, horario o descripción: solo supervisa, asigna colaborador antes de su confirmación,
-// registra el precio confirmado y, si hace falta, cancela con un motivo.
-// Sin backend, todo vive en memoria mientras la pestaña siga abierta.
-
+// Lo que ofrece este contexto: la lista y las acciones del flujo
 type ValorDelContextoDeSolicitudes = {
   solicitudes: Solicitud[];
   cambiarTrabajadorAsignado: (idDeSolicitud: string, idDelTrabajadorNuevo: string | null) => ResultadoDeOperacion;
-  registrarAcuerdoDePrecio: (idDeSolicitud: string, datos: DatosDeAcuerdoDePrecio) => ResultadoDeOperacion;
+  confirmarServicio: (idDeSolicitud: string) => ResultadoDeOperacion;
+  finalizarServicio: (idDeSolicitud: string) => ResultadoDeOperacion;
   cancelarSolicitud: (idDeSolicitud: string, motivo: string) => ResultadoDeOperacion;
 };
 
@@ -30,20 +26,21 @@ const SolicitudesContext = createContext<ValorDelContextoDeSolicitudes | null>(n
 
 const SOLICITUD_NO_ENCONTRADA: ResultadoDeOperacion = { exito: false, mensaje: "No se encontró la solicitud." };
 
+// Guarda las solicitudes y aplica las acciones del administrador
 export function SolicitudesProvider({ children }: { children: ReactNode }) {
   const { trabajadores } = useTrabajadores();
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>(() => crearSolicitudesDeDemostracion(new Date()));
 
+  // Actualiza una solicitud dentro de la lista
   function reemplazarSolicitud(solicitudActualizada: Solicitud) {
-    setSolicitudes((solicitudesActuales) =>
-      solicitudesActuales.map((solicitud) => (solicitud.id === solicitudActualizada.id ? solicitudActualizada : solicitud)),
-    );
+    setSolicitudes((solicitudesActuales) => solicitudesActuales.map((solicitud) => (solicitud.id === solicitudActualizada.id ? solicitudActualizada : solicitud)));
   }
 
   function buscarSolicitud(idDeSolicitud: string): Solicitud | undefined {
     return solicitudes.find((solicitud) => solicitud.id === idDeSolicitud);
   }
 
+  // Paso 1: asignar o cambiar al colaborador (valida disponibilidad)
   function cambiarTrabajadorAsignado(idDeSolicitud: string, idDelTrabajadorNuevo: string | null): ResultadoDeOperacion {
     const solicitud = buscarSolicitud(idDeSolicitud);
     if (!solicitud) {
@@ -57,27 +54,38 @@ export function SolicitudesProvider({ children }: { children: ReactNode }) {
     if (idDelTrabajadorNuevo === null) {
       return { exito: true, mensaje: `${solicitud.id} quedó sin colaborador asignado.` };
     }
-    return { exito: true, mensaje: `Colaborador asignado a ${solicitud.id}. Queda pendiente su confirmación.` };
+    return { exito: true, mensaje: `Colaborador asignado a ${solicitud.id}. Falta confirmar el servicio.` };
   }
 
-  function registrarAcuerdoDePrecio(idDeSolicitud: string, datos: DatosDeAcuerdoDePrecio): ResultadoDeOperacion {
+  // Paso 2: confirmar el servicio (Pendiente → Confirmado)
+  function confirmarServicio(idDeSolicitud: string): ResultadoDeOperacion {
     const solicitud = buscarSolicitud(idDeSolicitud);
     if (!solicitud) {
       return SOLICITUD_NO_ENCONTRADA;
     }
-    const permiso = evaluarRegistroDeAcuerdoDePrecio(solicitud);
+    const permiso = evaluarConfirmacion(solicitud, trabajadores, new Date());
     if (!permiso.exito) {
       return permiso;
     }
-    const errores = validarAcuerdoDePrecio(solicitud, datos);
-    const primerError = errores.precio ?? errores.aceptaciones;
-    if (primerError) {
-      return { exito: false, mensaje: primerError };
-    }
-    reemplazarSolicitud(aplicarAcuerdoDePrecio(solicitud, Number(datos.precio), new Date()));
-    return { exito: true, mensaje: `Precio final registrado en ${solicitud.id}.` };
+    reemplazarSolicitud(aplicarEstado(solicitud, "Confirmado"));
+    return { exito: true, mensaje: `${solicitud.id}: servicio confirmado.` };
   }
 
+  // Paso 3: finalizar el servicio (Confirmado → Realizado)
+  function finalizarServicio(idDeSolicitud: string): ResultadoDeOperacion {
+    const solicitud = buscarSolicitud(idDeSolicitud);
+    if (!solicitud) {
+      return SOLICITUD_NO_ENCONTRADA;
+    }
+    const permiso = evaluarFinalizacion(solicitud, new Date());
+    if (!permiso.exito) {
+      return permiso;
+    }
+    reemplazarSolicitud(aplicarEstado(solicitud, "Realizado"));
+    return { exito: true, mensaje: `${solicitud.id}: servicio finalizado. El cliente ya puede calificarlo.` };
+  }
+
+  // Cancelar con motivo (solo si no está finalizada)
   function cancelarSolicitud(idDeSolicitud: string, motivo: string): ResultadoDeOperacion {
     const solicitud = buscarSolicitud(idDeSolicitud);
     if (!solicitud) {
@@ -92,14 +100,15 @@ export function SolicitudesProvider({ children }: { children: ReactNode }) {
       return { exito: false, mensaje: errorDelMotivo };
     }
     reemplazarSolicitud(aplicarCancelacion(solicitud, motivo, new Date()));
-    return { exito: true, mensaje: `${solicitud.id} quedó cancelada. El cliente la verá así en su historial.` };
+    return { exito: true, mensaje: `${solicitud.id} quedó cancelada.` };
   }
 
   return (
-    <SolicitudesContext.Provider value={{ solicitudes, cambiarTrabajadorAsignado, registrarAcuerdoDePrecio, cancelarSolicitud }}>{children}</SolicitudesContext.Provider>
+    <SolicitudesContext.Provider value={{ solicitudes, cambiarTrabajadorAsignado, confirmarServicio, finalizarServicio, cancelarSolicitud }}>{children}</SolicitudesContext.Provider>
   );
 }
 
+// Hook para usar las solicitudes en cualquier pantalla
 export function useSolicitudes(): ValorDelContextoDeSolicitudes {
   const valor = useContext(SolicitudesContext);
   if (!valor) {

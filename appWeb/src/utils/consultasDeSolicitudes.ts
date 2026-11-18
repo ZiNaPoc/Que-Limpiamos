@@ -1,42 +1,24 @@
 import { claveDeFechaDesdeIso, diasEntre } from "./fechas";
+import { estaActiva, obtenerEtapa } from "./reglasDeSolicitudes";
 import { buscarTrabajador } from "../data/trabajadores";
 import { buscarCliente } from "../data/ClientesContext";
 import type { Cliente, FiltrosDeSolicitudes, Solicitud, Trabajador } from "../data/tipos";
 
+// Filtros base y atajos usados desde el inicio del panel
 export const FILTROS_VACIOS: FiltrosDeSolicitudes = {
   busqueda: "",
-  estado: "todos",
+  etapa: "todas",
   fechaDelTrabajo: "todas",
   fechaDeSolicitud: "todas",
-  asignacion: "todas",
+  eleccion: "todas",
 };
 
-export const FILTROS_PENDIENTES_DE_HOY: FiltrosDeSolicitudes = {
-  ...FILTROS_VACIOS,
-  estado: "Pendiente",
-  fechaDelTrabajo: "hoy",
-  asignacion: "sinAsignar",
-};
+export const FILTROS_ACTIVAS: FiltrosDeSolicitudes = { ...FILTROS_VACIOS, etapa: "activas" };
 
-export const FILTROS_SIN_COLABORADOR: FiltrosDeSolicitudes = {
-  ...FILTROS_VACIOS,
-  estado: "Pendiente",
-  asignacion: "sinAsignar",
-};
+export const FILTROS_ENVIADAS_DE_HOY: FiltrosDeSolicitudes = { ...FILTROS_VACIOS, etapa: "Solicitud enviada", fechaDelTrabajo: "hoy" };
 
-export const FILTROS_ESPERANDO_CONFIRMACION: FiltrosDeSolicitudes = {
-  ...FILTROS_VACIOS,
-  estado: "Pendiente",
-  asignacion: "asignadas",
-};
-
-// Solicitudes pendientes sin colaborador cuyo servicio todavía no pasa.
-export function obtenerSinColaborador(solicitudes: Solicitud[], ahora: Date): Solicitud[] {
-  return solicitudes.filter((solicitud) => solicitud.estado === "Pendiente" && solicitud.idDelTrabajador === null && milisegundosDe(solicitud.fechaProgramada) >= ahora.getTime() - 60 * 60 * 1000);
-}
-
-export function obtenerEsperandoConfirmacion(solicitudes: Solicitud[]): Solicitud[] {
-  return solicitudes.filter((solicitud) => solicitud.estado === "Pendiente" && solicitud.idDelTrabajador !== null);
+export function obtenerSolicitudesActivas(solicitudes: Solicitud[]): Solicitud[] {
+  return solicitudes.filter(estaActiva);
 }
 
 function milisegundosDe(fechaIso: string): number {
@@ -46,19 +28,21 @@ function milisegundosDe(fechaIso: string): number {
 export function tieneFiltrosActivos(filtros: FiltrosDeSolicitudes): boolean {
   return (
     filtros.busqueda.trim() !== "" ||
-    filtros.estado !== FILTROS_VACIOS.estado ||
+    filtros.etapa !== FILTROS_VACIOS.etapa ||
     filtros.fechaDelTrabajo !== FILTROS_VACIOS.fechaDelTrabajo ||
     filtros.fechaDeSolicitud !== FILTROS_VACIOS.fechaDeSolicitud ||
-    filtros.asignacion !== FILTROS_VACIOS.asignacion
+    filtros.eleccion !== FILTROS_VACIOS.eleccion
   );
 }
 
+// Servicios de hoy que aún no tienen colaborador
 export function obtenerPendientesDeAsignarHoy(solicitudes: Solicitud[], claveDeHoy: string): Solicitud[] {
   return solicitudes
-    .filter((solicitud) => claveDeFechaDesdeIso(solicitud.fechaProgramada) === claveDeHoy && solicitud.estado === "Pendiente" && solicitud.idDelTrabajador === null)
+    .filter((solicitud) => claveDeFechaDesdeIso(solicitud.fechaProgramada) === claveDeHoy && obtenerEtapa(solicitud) === "Solicitud enviada")
     .sort((a, b) => milisegundosDe(a.fechaProgramada) - milisegundosDe(b.fechaProgramada));
 }
 
+// Servicios de hoy ya confirmados
 export function obtenerServiciosEnProcesoHoy(solicitudes: Solicitud[], claveDeHoy: string): Solicitud[] {
   return solicitudes
     .filter((solicitud) => claveDeFechaDesdeIso(solicitud.fechaProgramada) === claveDeHoy && solicitud.estado === "Confirmado")
@@ -69,6 +53,7 @@ export function obtenerSolicitudesRecientes(solicitudes: Solicitud[], cantidadMa
   return [...solicitudes].sort((a, b) => milisegundosDe(b.fechaDeCreacion) - milisegundosDe(a.fechaDeCreacion)).slice(0, cantidadMaxima);
 }
 
+// Filtro por la fecha del servicio
 function coincideConFechaDelTrabajo(solicitud: Solicitud, filtro: FiltrosDeSolicitudes["fechaDelTrabajo"], claveDeHoy: string): boolean {
   if (filtro === "todas") {
     return true;
@@ -97,16 +82,17 @@ function coincideConFechaDeSolicitud(solicitud: Solicitud, filtro: FiltrosDeSoli
   return diasDesdeLaSolicitud >= 0 && diasDesdeLaSolicitud <= 6;
 }
 
-function coincideConAsignacion(solicitud: Solicitud, filtro: FiltrosDeSolicitudes["asignacion"]): boolean {
+function coincideConEtapa(solicitud: Solicitud, filtro: FiltrosDeSolicitudes["etapa"]): boolean {
   if (filtro === "todas") {
     return true;
   }
-  if (filtro === "sinAsignar") {
-    return solicitud.idDelTrabajador === null;
+  if (filtro === "activas") {
+    return estaActiva(solicitud);
   }
-  return solicitud.idDelTrabajador !== null;
+  return obtenerEtapa(solicitud) === filtro;
 }
 
+// Busca texto en cliente, servicio, dirección y colaborador
 function coincideConLaBusqueda(solicitud: Solicitud, busqueda: string, trabajadores: Trabajador[], clientes: Cliente[]): boolean {
   const textoBuscado = busqueda.trim().toLowerCase();
   if (textoBuscado === "") {
@@ -120,22 +106,21 @@ function coincideConLaBusqueda(solicitud: Solicitud, busqueda: string, trabajado
     cliente ? `${cliente.nombre} ${cliente.correo} ${cliente.telefono}` : "",
     solicitud.servicio,
     solicitud.direccion,
-    solicitud.descripcion,
     trabajador ? trabajador.nombre : "",
   ];
   return camposDondeBuscar.join(" ").toLowerCase().includes(textoBuscado);
 }
 
+// Aplica todos los filtros; las más nuevas salen primero
 export function filtrarSolicitudes(solicitudes: Solicitud[], filtros: FiltrosDeSolicitudes, claveDeHoy: string, trabajadores: Trabajador[], clientes: Cliente[]): Solicitud[] {
   return solicitudes
     .filter((solicitud) => {
-      if (filtros.estado !== "todos" && solicitud.estado !== filtros.estado) {
-        return false;
-      }
+      const coincideConLaEleccion = filtros.eleccion === "todas" || solicitud.modoDeEleccion === filtros.eleccion;
       return (
+        coincideConEtapa(solicitud, filtros.etapa) &&
+        coincideConLaEleccion &&
         coincideConFechaDelTrabajo(solicitud, filtros.fechaDelTrabajo, claveDeHoy) &&
         coincideConFechaDeSolicitud(solicitud, filtros.fechaDeSolicitud, claveDeHoy) &&
-        coincideConAsignacion(solicitud, filtros.asignacion) &&
         coincideConLaBusqueda(solicitud, filtros.busqueda, trabajadores, clientes)
       );
     })

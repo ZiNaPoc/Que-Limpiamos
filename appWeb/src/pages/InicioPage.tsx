@@ -1,23 +1,14 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useAhora } from "../hooks/useAhora";
 import { nombreDelCliente, useClientes } from "../data/ClientesContext";
-import { useReportes } from "../data/ReportesContext";
 import { useSolicitudes } from "../data/SolicitudesContext";
 import { useTrabajadores } from "../data/TrabajadoresContext";
 import { buscarTrabajador } from "../data/trabajadores";
 import type { Navegar, Sesion, Solicitud } from "../data/tipos";
-import {
-  FILTROS_ESPERANDO_CONFIRMACION,
-  FILTROS_PENDIENTES_DE_HOY,
-  FILTROS_SIN_COLABORADOR,
-  obtenerEsperandoConfirmacion,
-  obtenerPendientesDeAsignarHoy,
-  obtenerServiciosEnProcesoHoy,
-  obtenerSinColaborador,
-  obtenerSolicitudesRecientes,
-} from "../utils/consultasDeSolicitudes";
+import { FILTROS_ACTIVAS, FILTROS_ENVIADAS_DE_HOY, obtenerPendientesDeAsignarHoy, obtenerServiciosEnProcesoHoy, obtenerSolicitudesActivas, obtenerSolicitudesRecientes } from "../utils/consultasDeSolicitudes";
 import { calcularEstadoDelTrabajador } from "../utils/consultasDeTrabajadores";
-import { contarDocumentosPorEstado } from "../utils/documentosDeClientes";
+import { contarClientesPorVerificacion } from "../utils/documentosDeClientes";
+import { obtenerEtapa } from "../utils/reglasDeSolicitudes";
 import { obtenerClaveDeFecha } from "../utils/fechas";
 import { describirHorario, describirTiempoDesdeCreacion, formatearFechaDeHoy, formatearHora } from "../utils/formato";
 import { Icono } from "../components/comunes/Icono";
@@ -28,6 +19,7 @@ const CANTIDAD_DE_SOLICITUDES_RECIENTES = 5;
 const CANTIDAD_DE_PENDIENTES_EN_VISTA_PREVIA = 3;
 const CANTIDAD_DE_SERVICIOS_EN_VISTA_PREVIA = 4;
 
+// Número que sube con animación
 function useContadorAnimado(valorFinal: number, duracionEnMilisegundos = 700) {
   const [valorMostrado, setValorMostrado] = useState(0);
   const ultimoValorMostrado = useRef(0);
@@ -62,6 +54,7 @@ type TarjetaPendientesDeAsignarProps = {
   onAbrirSolicitud: (idDeSolicitud: string) => void;
 };
 
+// Servicios de hoy que aún no tienen colaborador
 function TarjetaPendientesDeAsignarHoy({ solicitudes, onVerTodas, onAbrirSolicitud }: TarjetaPendientesDeAsignarProps) {
   const { clientes } = useClientes();
   const total = solicitudes.length;
@@ -73,17 +66,17 @@ function TarjetaPendientesDeAsignarHoy({ solicitudes, onVerTodas, onAbrirSolicit
       <OlasDeFondo />
       <div className="relative flex flex-1 flex-col">
         <h3 id="titulo-de-pendientes" className="text-xs font-bold uppercase tracking-widest text-moss">
-          Pendientes de asignar hoy
+          Por asignar hoy
         </h3>
         <p className="mt-5 font-display text-8xl font-extrabold leading-none" aria-hidden>
           {totalMostrado}
         </p>
-        <p className="sr-only">{total} solicitudes de hoy sin trabajador asignado</p>
-        {total > 0 && <p className="mt-3 max-w-xs text-sm text-sky">{total === 1 ? "solicitud de hoy no encontró" : "solicitudes de hoy no encontraron"} colaborador en la asignación automática.</p>}
+        <p className="sr-only">{total} solicitudes de hoy sin colaborador asignado</p>
+        {total > 0 && <p className="mt-3 max-w-xs text-sm text-sky">{total === 1 ? "solicitud para hoy espera" : "solicitudes para hoy esperan"} que se le asigne colaborador.</p>}
         {total === 0 && (
           <p className="mt-3 flex max-w-xs items-center gap-2 text-sm text-sky">
             <Icono nombre="palomita" />
-            Todo lo de hoy ya tiene trabajador.
+            Todo lo de hoy ya tiene colaborador.
           </p>
         )}
 
@@ -116,6 +109,7 @@ type TarjetaServiciosEnProcesoProps = {
   onAbrirSolicitud: (idDeSolicitud: string) => void;
 };
 
+// Servicios de hoy ya confirmados
 function TarjetaServiciosEnProceso({ solicitudes, onAbrirSolicitud }: TarjetaServiciosEnProcesoProps) {
   const { trabajadores } = useTrabajadores();
   const vistaPrevia = solicitudes.slice(0, CANTIDAD_DE_SERVICIOS_EN_VISTA_PREVIA);
@@ -123,11 +117,11 @@ function TarjetaServiciosEnProceso({ solicitudes, onAbrirSolicitud }: TarjetaSer
     <section aria-labelledby="titulo-de-servicios-en-proceso" className="leaf-r surface h-full p-7 sm:p-9">
       <div className="flex items-baseline justify-between gap-3">
         <h3 id="titulo-de-servicios-en-proceso" className="text-xs font-bold uppercase tracking-widest text-slate">
-          Servicios en proceso
+          Servicios confirmados para hoy
         </h3>
         <span className="font-display text-3xl font-extrabold text-navy">{solicitudes.length}</span>
       </div>
-      <p className="mt-1 text-xs text-slate">Confirmados por el colaborador y programados para hoy.</p>
+      <p className="mt-1 text-xs text-slate">Márcalos como finalizados al terminar para que el cliente pueda calificarlos.</p>
 
       {vistaPrevia.length === 0 && <p className="mt-6 rounded-2xl bg-beige p-5 text-center text-sm text-slate">No hay servicios confirmados para hoy.</p>}
 
@@ -152,6 +146,7 @@ function TarjetaServiciosEnProceso({ solicitudes, onAbrirSolicitud }: TarjetaSer
   );
 }
 
+// Resumen rápido de los colaboradores
 function FranjaDelEquipo({ onVerTrabajadores }: { onVerTrabajadores: () => void }) {
   const { trabajadores } = useTrabajadores();
   const { solicitudes } = useSolicitudes();
@@ -160,16 +155,16 @@ function FranjaDelEquipo({ onVerTrabajadores }: { onVerTrabajadores: () => void 
     <section aria-labelledby="titulo-del-equipo">
       <div className="flex items-center justify-between gap-3">
         <h2 id="titulo-del-equipo" className="text-xs font-bold uppercase tracking-widest text-slate">
-          Equipo de hoy
+          Disponibilidad de colaboradores
         </h2>
         <button onClick={onVerTrabajadores} className="cursor-pointer rounded-full px-3 py-1.5 text-sm font-bold text-lagoon transition duration-300 hover:bg-sky/50">
-          Ver trabajadores
+          Ver colaboradores
         </button>
       </div>
       <ul className="mt-4 flex gap-6 overflow-x-auto pb-2">
         {trabajadores.map((trabajador) => {
           const estado = calcularEstadoDelTrabajador(solicitudes, trabajador, ahora);
-          const colorDelPunto = estado === "Disponible" ? "bg-sage" : estado === "En servicio" ? "bg-steel" : "bg-slate";
+          const colorDelPunto = estado === "Disponible" ? "bg-sage" : estado === "En servicio" ? "bg-steel" : estado === "Inactivo" ? "bg-frost" : "bg-slate";
           return (
             <li key={trabajador.id} className="flex w-20 shrink-0 flex-col items-center text-center">
               <span className="relative">
@@ -193,6 +188,7 @@ type ListaDeSolicitudesRecientesProps = {
   onVerTodas: () => void;
 };
 
+// Últimas solicitudes recibidas
 function ListaDeSolicitudesRecientes({ solicitudes, ahora, onAbrirSolicitud, onVerTodas }: ListaDeSolicitudesRecientesProps) {
   const { clientes } = useClientes();
   const claveDeHoy = obtenerClaveDeFecha(ahora);
@@ -222,7 +218,7 @@ function ListaDeSolicitudesRecientes({ solicitudes, ahora, onAbrirSolicitud, onV
                 <span className="block truncate text-sm font-bold text-navy">
                   {nombreDelCliente(clientes, solicitud.idDelCliente)} · {solicitud.servicio}
                 </span>
-                <span className="block truncate text-xs text-slate">{solicitud.descripcion}</span>
+                <span className="block truncate text-xs text-slate">{solicitud.direccion}</span>
               </span>
               <span className="flex flex-col gap-1 text-xs">
                 <span className="flex items-center gap-1.5 text-slate">
@@ -234,7 +230,7 @@ function ListaDeSolicitudesRecientes({ solicitudes, ahora, onAbrirSolicitud, onV
                   {describirHorario(solicitud.fechaProgramada, claveDeHoy)}
                 </span>
               </span>
-              <InsigniaDeEstado estado={solicitud.estado} />
+              <InsigniaDeEstado estado={obtenerEtapa(solicitud)} />
             </button>
           </li>
         ))}
@@ -243,40 +239,42 @@ function ListaDeSolicitudesRecientes({ solicitudes, ahora, onAbrirSolicitud, onV
   );
 }
 
-type IndicadorDeAtencion = {
+type IndicadorPrincipal = {
   etiqueta: string;
-  descripcion: string;
   valor: number;
-  icono: "bandeja" | "reloj" | "identificacion" | "reportes";
+  detalle: string;
+  icono: "bandeja" | "trabajadores" | "identificacion";
+  requiereAtencion: boolean;
+  textoDelBoton: string;
   onAbrir: () => void;
 };
 
-// Lo que necesita intervención del administrador: es el resultado de procesos que el cliente
-// inicia en la app (solicitar, registrarse con su INE, reportar).
-function RequiereAtencion({ indicadores }: { indicadores: IndicadorDeAtencion[] }) {
+// Tarjetas con los números clave
+function IndicadoresPrincipales({ indicadores }: { indicadores: IndicadorPrincipal[] }) {
   return (
-    <section aria-labelledby="titulo-de-atencion">
-      <h2 id="titulo-de-atencion" className="font-display text-2xl font-extrabold text-navy">
-        Requiere atención
+    <section aria-labelledby="titulo-de-indicadores">
+      <h2 id="titulo-de-indicadores" className="font-display text-2xl font-extrabold text-navy">
+        Indicadores principales
       </h2>
-      <ul className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {indicadores.map((indicador) => {
-          const estaAlDia = indicador.valor === 0;
-          return (
-            <li key={indicador.etiqueta}>
-              <button onClick={indicador.onAbrir} className={`surface leaf-sm flex h-full w-full cursor-pointer flex-col p-5 text-left transition duration-300 ease-soft hover:-translate-y-0.5 hover:shadow-lift ${estaAlDia ? "" : "ring-1 ring-ochre/50"}`}>
-                <span className="flex items-center justify-between gap-3">
-                  <span className={`pebble grid h-10 w-10 place-items-center ${estaAlDia ? "bg-moss/40 text-storm" : "bg-moon text-clay"}`}>
-                    <Icono nombre={estaAlDia ? "palomita" : indicador.icono} className="h-5 w-5" />
-                  </span>
-                  <span className="font-display text-4xl font-extrabold text-navy">{indicador.valor}</span>
+      <ul className="mt-5 grid gap-4 md:grid-cols-3">
+        {indicadores.map((indicador) => (
+          <li key={indicador.etiqueta}>
+            <button onClick={indicador.onAbrir} className={`surface leaf-sm flex h-full w-full cursor-pointer flex-col p-6 text-left transition duration-300 ease-soft hover:-translate-y-0.5 hover:shadow-lift ${indicador.requiereAtencion ? "ring-1 ring-ochre/50" : ""}`}>
+              <span className="flex items-center justify-between gap-3">
+                <span className={`pebble grid h-11 w-11 place-items-center ${indicador.requiereAtencion ? "bg-moon text-clay" : "bg-moss/40 text-storm"}`}>
+                  <Icono nombre={indicador.icono} className="h-5 w-5" />
                 </span>
-                <span className="mt-4 block text-sm font-bold text-navy">{indicador.etiqueta}</span>
-                <span className="mt-1 block text-xs text-slate">{indicador.descripcion}</span>
-              </button>
-            </li>
-          );
-        })}
+                <span className="font-display text-5xl font-extrabold text-navy">{indicador.valor}</span>
+              </span>
+              <span className="mt-4 block text-base font-bold text-navy">{indicador.etiqueta}</span>
+              <span className="mt-1 block flex-1 text-xs text-slate">{indicador.detalle}</span>
+              <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-bold text-lagoon">
+                {indicador.textoDelBoton}
+                <Icono nombre="flecha" className="h-4 w-4" />
+              </span>
+            </button>
+          </li>
+        ))}
       </ul>
     </section>
   );
@@ -287,46 +285,53 @@ type InicioPageProps = {
   onNavegar: Navegar;
 };
 
+// Inicio: resumen del día y atajos a las demás pantallas
 export function InicioPage({ sesion, onNavegar }: InicioPageProps) {
   const { solicitudes } = useSolicitudes();
   const { clientes } = useClientes();
-  const { reportes } = useReportes();
+  const { trabajadores } = useTrabajadores();
   const ahora = useAhora();
   const claveDeHoy = obtenerClaveDeFecha(ahora);
-  const indicadoresDeAtencion: IndicadorDeAtencion[] = [
+  const solicitudesActivas = obtenerSolicitudesActivas(solicitudes);
+  const porEtapa = (etapa: string) => solicitudesActivas.filter((solicitud) => obtenerEtapa(solicitud) === etapa).length;
+  const colaboradoresActivos = trabajadores.filter((trabajador) => trabajador.estado === "Activo");
+  const colaboradoresDisponibles = colaboradoresActivos.filter((trabajador) => calcularEstadoDelTrabajador(solicitudes, trabajador, ahora) === "Disponible").length;
+  const inePorValidar = contarClientesPorVerificacion(clientes).Pendiente;
+  // Números clave; cada uno abre su pantalla ya filtrada
+  const indicadores: IndicadorPrincipal[] = [
     {
-      etiqueta: "Sin colaborador",
-      descripcion: "La asignación automática no encontró a nadie.",
-      valor: obtenerSinColaborador(solicitudes, ahora).length,
+      etiqueta: "Solicitudes activas",
+      valor: solicitudesActivas.length,
+      detalle: `${porEtapa("Solicitud enviada")} por asignar · ${porEtapa("Asignando colaborador")} por confirmar · ${porEtapa("Servicio confirmado")} confirmadas`,
       icono: "bandeja",
-      onAbrir: () => onNavegar("solicitudes", { filtrosDeSolicitudes: FILTROS_SIN_COLABORADOR }),
+      requiereAtencion: porEtapa("Solicitud enviada") > 0,
+      textoDelBoton: "Ver solicitudes",
+      onAbrir: () => onNavegar("solicitudes", { filtrosDeSolicitudes: FILTROS_ACTIVAS }),
     },
     {
-      etiqueta: "Esperan confirmación",
-      descripcion: "El colaborador aún no confirma el servicio.",
-      valor: obtenerEsperandoConfirmacion(solicitudes).length,
-      icono: "reloj",
-      onAbrir: () => onNavegar("solicitudes", { filtrosDeSolicitudes: FILTROS_ESPERANDO_CONFIRMACION }),
+      etiqueta: "Colaboradores",
+      valor: colaboradoresActivos.length,
+      detalle: `Activos · ${colaboradoresDisponibles} ${colaboradoresDisponibles === 1 ? "disponible" : "disponibles"} en este momento`,
+      icono: "trabajadores",
+      requiereAtencion: false,
+      textoDelBoton: "Ver colaboradores",
+      onAbrir: () => onNavegar("trabajadores"),
     },
     {
-      etiqueta: "Documentación por validar",
-      descripcion: "INE de clientes pendiente de revisión.",
-      valor: contarDocumentosPorEstado(clientes).Pendiente,
+      etiqueta: "Validaciones de INE pendientes",
+      valor: inePorValidar,
+      detalle: inePorValidar === 0 ? "No hay INE esperando revisión." : "Clientes nuevos esperando la revisión de su INE.",
       icono: "identificacion",
-      onAbrir: () => onNavegar("clientes", { seccionDeDocumentos: "Pendiente" }),
-    },
-    {
-      etiqueta: "Reportes sin resolver",
-      descripcion: "Pendientes o en revisión.",
-      valor: reportes.filter((reporte) => reporte.estado !== "Resuelto").length,
-      icono: "reportes",
-      onAbrir: () => onNavegar("reportes", { filtroDeReportes: "Todos" }),
+      requiereAtencion: inePorValidar > 0,
+      textoDelBoton: "Revisar INE",
+      onAbrir: () => onNavegar("clientes", { filtroDeVerificacion: "Pendiente" }),
     },
   ];
   const pendientesDeAsignarHoy = obtenerPendientesDeAsignarHoy(solicitudes, claveDeHoy);
   const serviciosEnProcesoHoy = obtenerServiciosEnProcesoHoy(solicitudes, claveDeHoy);
   const solicitudesRecientes = obtenerSolicitudesRecientes(solicitudes, CANTIDAD_DE_SOLICITUDES_RECIENTES);
 
+  // Abre una solicitud directo en su detalle
   function abrirSolicitud(idDeSolicitud: string) {
     onNavegar("solicitudes", { idDeSolicitud });
   }
@@ -347,7 +352,7 @@ export function InicioPage({ sesion, onNavegar }: InicioPageProps) {
       </header>
 
       <div className="rise" style={{ animationDelay: "60ms" }}>
-        <RequiereAtencion indicadores={indicadoresDeAtencion} />
+        <IndicadoresPrincipales indicadores={indicadores} />
       </div>
 
       <div className="rise" style={{ animationDelay: "100ms" }}>
@@ -360,7 +365,7 @@ export function InicioPage({ sesion, onNavegar }: InicioPageProps) {
         </h2>
         <div className="mt-6 grid gap-8 lg:grid-cols-12">
           <div className="lg:col-span-6">
-            <TarjetaPendientesDeAsignarHoy solicitudes={pendientesDeAsignarHoy} onVerTodas={() => onNavegar("solicitudes", { filtrosDeSolicitudes: FILTROS_PENDIENTES_DE_HOY })} onAbrirSolicitud={abrirSolicitud} />
+            <TarjetaPendientesDeAsignarHoy solicitudes={pendientesDeAsignarHoy} onVerTodas={() => onNavegar("solicitudes", { filtrosDeSolicitudes: FILTROS_ENVIADAS_DE_HOY })} onAbrirSolicitud={abrirSolicitud} />
           </div>
           <div className="lg:col-span-6">
             <TarjetaServiciosEnProceso solicitudes={serviciosEnProcesoHoy} onAbrirSolicitud={abrirSolicitud} />

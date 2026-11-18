@@ -17,20 +17,24 @@ type SolicitudesPageProps = {
   onNavegar: Navegar;
 };
 
+// Lista de solicitudes; al elegir una se abre su detalle
 export function SolicitudesPage({ apertura, onNavegar }: SolicitudesPageProps) {
   const { solicitudes } = useSolicitudes();
   const { trabajadores } = useTrabajadores();
   const { clientes } = useClientes();
   const ahora = useAhora();
   const claveDeHoy = obtenerClaveDeFecha(ahora);
+  // Filtros activos (pueden venir ya puestos desde el inicio)
   const [filtros, setFiltros] = useState<FiltrosDeSolicitudes>(apertura.filtrosDeSolicitudes ?? FILTROS_VACIOS);
   const [idDeSolicitudSeleccionada, setIdDeSolicitudSeleccionada] = useState<string | null>(apertura.idDeSolicitud ?? null);
 
+  // Si hay una solicitud elegida, se muestra su detalle
   const solicitudSeleccionada = solicitudes.find((solicitud) => solicitud.id === idDeSolicitudSeleccionada);
   if (solicitudSeleccionada) {
     return <DetalleDeSolicitud key={solicitudSeleccionada.id} solicitud={solicitudSeleccionada} onVolver={() => setIdDeSolicitudSeleccionada(null)} onNavegar={onNavegar} />;
   }
 
+  // Solicitudes que pasan los filtros
   const solicitudesVisibles = filtrarSolicitudes(solicitudes, filtros, claveDeHoy, trabajadores, clientes);
 
   return (
@@ -39,14 +43,16 @@ export function SolicitudesPage({ apertura, onNavegar }: SolicitudesPageProps) {
         <h1 className="text-4xl font-extrabold text-navy">Gestión de solicitudes</h1>
         <InsigniaDeDatosDeDemostracion />
       </div>
-      <p className="mt-2 max-w-3xl text-sm text-slate">Solicitudes que los clientes envían desde la app. Aquí se da seguimiento a su estado, se asigna colaborador cuando la asignación automática no encuentra uno y se atienden las que requieren intervención.</p>
+      <p className="mt-2 max-w-3xl text-sm text-slate">Solicitudes que los clientes envían desde la app. Asigna o confirma al colaborador y avanza cada solicitud por el mismo seguimiento que ve el cliente: solicitud enviada, asignando colaborador, servicio confirmado y servicio finalizado.</p>
 
       <div className="mt-8">
         <BarraDeFiltrosDeSolicitudes filtros={filtros} totalDeSolicitudes={solicitudes.length} solicitudesVisibles={solicitudesVisibles.length} onCambiarFiltros={setFiltros} onRestablecerFiltros={() => setFiltros(FILTROS_VACIOS)} />
       </div>
 
       <div className="mt-6">
+        {/* Lista de resultados */}
         {solicitudesVisibles.length > 0 && <ListaDeSolicitudes solicitudes={solicitudesVisibles} ahora={ahora} claveDeHoy={claveDeHoy} onAbrirSolicitud={setIdDeSolicitudSeleccionada} />}
+        {/* Mensaje si no hay resultados */}
         {solicitudesVisibles.length === 0 && (
           <div className="leaf relative overflow-hidden border border-dashed border-frost bg-white/70 p-12 text-center">
             <FormaOrganica className="-right-10 -top-12 h-44 w-44 text-sky/70" />

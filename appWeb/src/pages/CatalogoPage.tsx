@@ -1,14 +1,13 @@
 import { useEffect, useState, type FormEvent } from "react";
 import {
   BORRADOR_DE_SERVICIO_VACIO,
-  CATEGORIAS_DE_SERVICIO,
   crearBorradorDesdeServicio,
   useCatalogo,
   validarServicio,
   type BorradorDeServicio,
   type ErroresDelServicio,
 } from "../data/CatalogoContext";
-import type { CategoriaDeServicio, ResultadoDeOperacion, ServicioDelCatalogo } from "../data/tipos";
+import type { EstadoDeServicio, ResultadoDeOperacion, ServicioDelCatalogo } from "../data/tipos";
 import { useSolicitudes } from "../data/SolicitudesContext";
 import { useTrabajadores } from "../data/TrabajadoresContext";
 import { formatearPrecio, normalizarTexto } from "../utils/formato";
@@ -19,14 +18,15 @@ import { InsigniaDeDatosDeDemostracion, InsigniaDeEstado } from "../components/c
 import { TarjetaDeIndicador } from "../components/comunes/TarjetaDeIndicador";
 import { VentanaDeConfirmacion } from "../components/comunes/VentanasModales";
 
+// Vista de la pantalla: lista, nuevo o editar
 type VistaDelCatalogo = { tipo: "lista" } | { tipo: "nuevo" } | { tipo: "editar"; idDelServicio: string };
 
 const FILTROS_DE_ESTADO_DEL_SERVICIO = ["Todos", "Activo", "Inactivo"];
 
-const TITULO_POR_CATEGORIA: Record<CategoriaDeServicio, string> = {
-  Principal: "Servicios principales",
-  Extra: "Servicios extras",
-};
+const GRUPOS_DEL_CATALOGO: { estado: EstadoDeServicio; titulo: string; descripcion: string }[] = [
+  { estado: "Activo", titulo: "Disponibles en la app", descripcion: "Los clientes pueden verlos y solicitarlos." },
+  { estado: "Inactivo", titulo: "Desactivados", descripcion: "No se muestran en la app." },
+];
 
 function claseDelFiltroDeEstado(estaActivo: boolean) {
   const claseBase = "cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition duration-300";
@@ -59,6 +59,7 @@ type FormularioDeServicioProps = {
   onTerminar: (resultado: ResultadoDeOperacion) => void;
 };
 
+// Formulario para crear o editar un servicio
 function FormularioDeServicio({ servicioEditado, onCancelar, onTerminar }: FormularioDeServicioProps) {
   const { servicios, registrarServicio, editarServicio } = useCatalogo();
   const [borrador, setBorrador] = useState<BorradorDeServicio>(() => (servicioEditado ? crearBorradorDesdeServicio(servicioEditado) : BORRADOR_DE_SERVICIO_VACIO));
@@ -69,6 +70,7 @@ function FormularioDeServicio({ servicioEditado, onCancelar, onTerminar }: Formu
     setBorrador({ ...borrador, [campo]: valor });
   }
 
+  // Valida y guarda; si hay errores se marcan en el formulario
   function handleEnviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     const idDelServicioEditado = servicioEditado ? servicioEditado.id : null;
@@ -127,25 +129,10 @@ function FormularioDeServicio({ servicioEditado, onCancelar, onTerminar }: Formu
         <CampoDeFormulario id="servicio-descripcion" etiqueta="Descripción" error={errores.descripcion}>
           <textarea id="servicio-descripcion" rows={3} maxLength={300} value={borrador.descripcion} onChange={(evento) => cambiarCampo("descripcion", evento.target.value)} {...propiedadesDeError("descripcion")} className="field resize-y" />
         </CampoDeFormulario>
-        <div className="grid gap-5 sm:grid-cols-3">
+        <div className="sm:max-w-xs">
           <CampoNumerico id="precioBase" etiqueta="Precio «desde» (MXN)" valor={borrador.precioBase} error={errores.precioBase} onCambiar={(valor) => cambiarCampo("precioBase", valor)} />
-          <CampoNumerico id="costoPorMetroCuadrado" etiqueta="Costo por m² (MXN)" valor={borrador.costoPorMetroCuadrado} error={errores.costoPorMetroCuadrado} onCambiar={(valor) => cambiarCampo("costoPorMetroCuadrado", valor)} />
-          <CampoNumerico id="costoPorHabitacion" etiqueta="Costo por habitación (MXN)" valor={borrador.costoPorHabitacion} error={errores.costoPorHabitacion} onCambiar={(valor) => cambiarCampo("costoPorHabitacion", valor)} />
+          <p className="mt-1.5 text-xs text-slate">Se muestra en la app como «Desde $…», como referencia.</p>
         </div>
-        <CampoDeFormulario id="servicio-categoria" etiqueta="Categoría" error={errores.categoria}>
-          <div className="relative">
-            <select id="servicio-categoria" value={borrador.categoria} onChange={(evento) => cambiarCampo("categoria", evento.target.value)} {...propiedadesDeError("categoria")} className="field cursor-pointer appearance-none pr-10">
-              <option value="">Elige una categoría</option>
-              {CATEGORIAS_DE_SERVICIO.map((categoria) => (
-                <option key={categoria.valor} value={categoria.valor}>
-                  {categoria.etiqueta}
-                </option>
-              ))}
-            </select>
-            <Icono nombre="flechaAbajo" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate" />
-          </div>
-        </CampoDeFormulario>
-
         {mensajeGeneral && Object.keys(errores).length > 0 && (
           <p role="alert" className="text-sm font-semibold text-err">
             {mensajeGeneral}
@@ -171,6 +158,7 @@ type ListaDelCatalogoProps = {
   onResultado: (resultado: ResultadoDeOperacion) => void;
 };
 
+// Lista de servicios con búsqueda y filtro por estado
 function ListaDelCatalogo({ onAgregar, onEditar, onResultado }: ListaDelCatalogoProps) {
   const { servicios, cambiarEstadoDelServicio } = useCatalogo();
   const { solicitudes } = useSolicitudes();
@@ -185,6 +173,7 @@ function ListaDelCatalogo({ onAgregar, onEditar, onResultado }: ListaDelCatalogo
     return trabajadores.filter((trabajador) => trabajador.especialidades.includes(idDelServicio)).length;
   }
 
+  // Texto de confirmación al activar o desactivar
   function describirCambioDeEstado(servicio: ServicioDelCatalogo): string[] {
     const lineas = [`Estado: ${servicio.estado} → ${servicio.estado === "Activo" ? "Inactivo" : "Activo"}`];
     if (servicio.estado === "Activo") {
@@ -204,7 +193,7 @@ function ListaDelCatalogo({ onAgregar, onEditar, onResultado }: ListaDelCatalogo
   const textoBuscado = normalizarTexto(busqueda);
   const serviciosVisibles = servicios.filter((servicio) => {
     const coincideConElEstado = filtroDeEstado === "Todos" || servicio.estado === filtroDeEstado;
-    const textoDelServicio = normalizarTexto(`${servicio.id} ${servicio.nombre} ${servicio.descripcion} ${TITULO_POR_CATEGORIA[servicio.categoria]}`);
+    const textoDelServicio = normalizarTexto(`${servicio.id} ${servicio.nombre} ${servicio.descripcion}`);
     return coincideConElEstado && textoDelServicio.includes(textoBuscado);
   });
   const serviciosDisponibles = servicios.filter((servicio) => servicio.estado === "Activo").length;
@@ -221,7 +210,7 @@ function ListaDelCatalogo({ onAgregar, onEditar, onResultado }: ListaDelCatalogo
         <h1 className="text-4xl font-extrabold text-navy">Gestión de servicios</h1>
         <InsigniaDeDatosDeDemostracion />
       </div>
-      <p className="mt-2 max-w-3xl text-sm text-slate">Servicios que el cliente ve en la app («Desde $…»). El precio base y los costos sirven para el precio estimado; el precio final lo confirma el colaborador. Editar el catálogo no cambia las solicitudes existentes.</p>
+      <p className="mt-2 max-w-3xl text-sm text-slate">Tipos de limpieza que el cliente ve en «Servicios» de la app, con su precio «Desde $…». Solo los servicios activos se muestran en la app. Editar el catálogo no cambia las solicitudes existentes.</p>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         <TarjetaDeIndicador etiqueta="Servicios registrados" valor={servicios.length} />
@@ -231,7 +220,7 @@ function ListaDelCatalogo({ onAgregar, onEditar, onResultado }: ListaDelCatalogo
       <div className="mt-6 flex flex-col gap-4 lg:flex-row lg:items-center">
         <div className="relative flex-1">
           <Icono nombre="buscar" className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate" />
-          <input type="search" value={busqueda} onChange={(evento) => setBusqueda(evento.target.value)} placeholder="Buscar por nombre, descripción o categoría" aria-label="Buscar servicios" className="field pl-11" />
+          <input type="search" value={busqueda} onChange={(evento) => setBusqueda(evento.target.value)} placeholder="Buscar por nombre o descripción" aria-label="Buscar servicios" className="field pl-11" />
         </div>
         <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar por estado">
           {FILTROS_DE_ESTADO_DEL_SERVICIO.map((estado) => (
@@ -262,20 +251,21 @@ function ListaDelCatalogo({ onAgregar, onEditar, onResultado }: ListaDelCatalogo
 
       {serviciosVisibles.length === 0 && <p className="mt-6 rounded-2xl bg-white p-10 text-center text-sm text-slate">No hay servicios que coincidan con la búsqueda o el filtro.</p>}
 
-      {CATEGORIAS_DE_SERVICIO.map(({ valor: categoria }) => {
-        const serviciosDeLaCategoria = serviciosVisibles.filter((servicio) => servicio.categoria === categoria);
-        if (serviciosDeLaCategoria.length === 0) {
+      {GRUPOS_DEL_CATALOGO.map(({ estado, titulo, descripcion }) => {
+        const serviciosDelGrupo = serviciosVisibles.filter((servicio) => servicio.estado === estado);
+        if (serviciosDelGrupo.length === 0) {
           return null;
         }
         return (
-          <section key={categoria} aria-labelledby={`titulo-de-categoria-${categoria}`} className="mt-6">
-            <h3 id={`titulo-de-categoria-${categoria}`} className="text-xs font-bold uppercase tracking-widest text-slate">
-              {TITULO_POR_CATEGORIA[categoria]}
+          <section key={estado} aria-labelledby={`titulo-de-grupo-${estado}`} className="mt-6">
+            <h3 id={`titulo-de-grupo-${estado}`} className="text-xs font-bold uppercase tracking-widest text-slate">
+              {titulo} · {serviciosDelGrupo.length}
             </h3>
+            <p className="mt-1 text-xs text-slate">{descripcion}</p>
             <ul className="mt-3 space-y-3">
-              {serviciosDeLaCategoria.map((servicio) => (
-                <li key={servicio.id} className="surface leaf-sm flex flex-wrap items-center gap-4 px-4 py-4 sm:flex-nowrap sm:px-5">
-                  <span className="pebble grid h-11 w-11 shrink-0 place-items-center bg-sky text-navy">
+              {serviciosDelGrupo.map((servicio) => (
+                <li key={servicio.id} className={`surface leaf-sm flex flex-wrap items-center gap-4 px-4 py-4 sm:flex-nowrap sm:px-5 ${servicio.estado === "Inactivo" ? "opacity-70" : ""}`}>
+                  <span className={`pebble grid h-11 w-11 shrink-0 place-items-center ${servicio.estado === "Activo" ? "bg-moss/60 text-navy" : "bg-mist text-slate"}`}>
                     <Icono nombre="catalogo" />
                   </span>
                   <span className="min-w-0 flex-1">
@@ -314,6 +304,7 @@ function ListaDelCatalogo({ onAgregar, onEditar, onResultado }: ListaDelCatalogo
   );
 }
 
+// Catálogo: lista y formulario
 export function CatalogoPage() {
   const { servicios } = useCatalogo();
   const [vista, setVista] = useState<VistaDelCatalogo>({ tipo: "lista" });
@@ -323,6 +314,7 @@ export function CatalogoPage() {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [vista]);
 
+  // Muestra el aviso y vuelve a la lista si salió bien
   function terminarFormulario(resultado: ResultadoDeOperacion) {
     setAviso(resultado);
     if (resultado.exito) {

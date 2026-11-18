@@ -33,6 +33,7 @@ function liberarDesplazamientoDelFondo() {
   }
 }
 
+// Ventana flotante base: se cierra con Esc y mantiene el foco
 export function VentanaModal({ idDelTitulo, onCerrar, children, claseDeAncho = "max-w-md" }: VentanaModalProps) {
   const panelRef = useAtrapaFoco<HTMLDivElement>(true, onCerrar);
 
@@ -60,6 +61,7 @@ type VentanaDeConfirmacionProps = {
   onCancelar: () => void;
 };
 
+// Pregunta "¿seguro?" mostrando los cambios que se harán
 export function VentanaDeConfirmacion({ titulo, lineasDeCambios, etiquetaDeConfirmar, onConfirmar, onCancelar }: VentanaDeConfirmacionProps) {
   return (
     <VentanaModal idDelTitulo="titulo-de-confirmacion" onCerrar={onCancelar}>

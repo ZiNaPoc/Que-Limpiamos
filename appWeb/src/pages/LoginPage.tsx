@@ -13,21 +13,25 @@ export function LoginPage({ onAccesoExitoso }: { onAccesoExitoso: (sesion: Sesio
   const [ayudaVisible, setAyudaVisible] = useState(false);
   const [contrasenaVisible, setContrasenaVisible] = useState(false);
 
+  // Muestra el error y sacude el formulario
   function mostrarErrorDeAcceso(mensaje: string) {
     setMensajeDeError(mensaje);
     setFormularioVibrando(true);
   }
 
+  // Valida los campos y envía el login al servidor
   async function handleEnvioDelFormulario(evento: React.SubmitEvent<HTMLFormElement> ) {
     evento.preventDefault();
     setMensajeDeError("");
 
+    // Campos vacíos: no se envía nada
     if(!correo.trim() || !contrasena) {
       mostrarErrorDeAcceso("Completa tu correo y contraseña.");
       return;
     }
 
     try {
+      // Petición al servidor con correo y contraseña
       const respuesta = await fetch (
         `${import.meta.env.VITE_API_URL}/api/auth/admin/login`,
         {
@@ -45,10 +49,12 @@ export function LoginPage({ onAccesoExitoso }: { onAccesoExitoso: (sesion: Sesio
 
       const datos = await respuesta.json();
 
+      // Si el servidor rechaza el acceso, se muestra su mensaje
       if(!respuesta.ok) {
         throw new Error(datos.mensaje || 'No se puedo iniciar sesion.');
       }
 
+      // Acceso correcto: App guarda la sesión y abre el panel
       onAccesoExitoso(datos.usuario);
     } catch(error) {
       mostrarErrorDeAcceso(

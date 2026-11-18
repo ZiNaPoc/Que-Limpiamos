@@ -166,6 +166,7 @@ type ImagenOIlustracionProps = {
   className?: string;
 };
 
+// Usa la imagen si existe; si no, una ilustración
 export function ImagenOIlustracion({ rutaDeImagen, textoAlternativo, ilustracionDeRespaldo, className = "" }: ImagenOIlustracionProps) {
   if (rutaDeImagen) {
     return (

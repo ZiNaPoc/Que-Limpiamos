@@ -25,7 +25,6 @@ export function OlasDeFondo({ className = "" }: { className?: string }) {
   );
 }
 
-// «claro» se usa sobre fondos oscuros (menú lateral y pie de página).
 export function Logotipo({ claro = false }: { claro?: boolean }) {
   return (
     <span className="inline-flex shrink-0">

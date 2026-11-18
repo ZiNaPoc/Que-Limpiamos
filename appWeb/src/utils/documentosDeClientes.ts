@@ -1,51 +1,39 @@
-import type { Cliente, DocumentoDeCliente, EstadoDeDocumento, EstadoDeVerificacion, ResultadoDeOperacion, RevisionDeDocumento } from "../data/tipos";
-
-// Reglas de la validación de documentos de clientes (INE frente y reverso).
-// Son las mismas que deberá aplicar el backend cuando exista.
+import type { Cliente, EstadoDeVerificacion, ResultadoDeOperacion, VerificacionDeIne } from "../data/tipos";
 
 export const LONGITUD_MINIMA_DEL_MOTIVO_DE_RECHAZO = 10;
 export const LONGITUD_MAXIMA_DEL_MOTIVO_DE_RECHAZO = 300;
 
-export const SECCIONES_DE_DOCUMENTOS: { estado: EstadoDeDocumento; etiqueta: string }[] = [
+export const SECCIONES_DE_VERIFICACION: { estado: EstadoDeVerificacion; etiqueta: string }[] = [
   { estado: "Pendiente", etiqueta: "Por validar" },
-  { estado: "Aprobado", etiqueta: "Confirmada" },
-  { estado: "Rechazado", etiqueta: "Rechazada" },
+  { estado: "Verificada", etiqueta: "Aprobada" },
+  { estado: "Rechazada", etiqueta: "Rechazada" },
 ];
 
-// La INE queda verificada cuando sus dos lados están aprobados. Un lado rechazado pide acción
-// del cliente; si no, cualquier lado pendiente la deja por verificar.
-export function calcularEstadoDeVerificacion(documentos: DocumentoDeCliente[]): EstadoDeVerificacion {
-  if (documentos.some((documento) => documento.estado === "Rechazado")) {
-    return "Rechazada";
-  }
-  if (documentos.length > 0 && documentos.every((documento) => documento.estado === "Aprobado")) {
-    return "Verificada";
-  }
-  return "Por verificar";
-}
-
-export function evaluarRevision(documento: DocumentoDeCliente): ResultadoDeOperacion {
-  if (documento.estado !== "Pendiente") {
-    return { exito: false, mensaje: `Este documento ya fue ${documento.estado === "Aprobado" ? "aprobado" : "rechazado"}.` };
+// Solo se revisa una INE que está pendiente
+export function evaluarRevisionDeIne(cliente: Cliente): ResultadoDeOperacion {
+  if (cliente.verificacion.estado !== "Pendiente") {
+    return { exito: false, mensaje: `La INE ya fue ${cliente.verificacion.estado === "Verificada" ? "aprobada" : "rechazada"}.` };
   }
   return { exito: true, mensaje: "" };
 }
 
-export function evaluarAprobacion(documento: DocumentoDeCliente): ResultadoDeOperacion {
-  const permiso = evaluarRevision(documento);
+// Para aprobar deben estar los dos lados de la INE
+export function evaluarAprobacionDeIne(cliente: Cliente): ResultadoDeOperacion {
+  const permiso = evaluarRevisionDeIne(cliente);
   if (!permiso.exito) {
     return permiso;
   }
-  if (!documento.archivo) {
-    return { exito: false, mensaje: "No hay archivo que revisar. Solo puede rechazarse para que el cliente lo envíe de nuevo." };
+  if (cliente.documentos.some((documento) => !documento.archivo)) {
+    return { exito: false, mensaje: "Falta un lado de la INE. Solo puede rechazarse para que el cliente lo envíe." };
   }
   return permiso;
 }
 
+// El motivo de rechazo debe tener un largo válido
 export function validarMotivoDeRechazo(motivo: string): string | undefined {
   const motivoLimpio = motivo.trim();
   if (motivoLimpio.length === 0) {
-    return "Escribe el motivo del rechazo; el cliente lo necesita para corregir su documento.";
+    return "Escribe el motivo del rechazo; el cliente lo necesita para corregir su INE.";
   }
   if (motivoLimpio.length < LONGITUD_MINIMA_DEL_MOTIVO_DE_RECHAZO) {
     return `Explica el motivo con al menos ${LONGITUD_MINIMA_DEL_MOTIVO_DE_RECHAZO} caracteres.`;
@@ -56,36 +44,27 @@ export function validarMotivoDeRechazo(motivo: string): string | undefined {
   return undefined;
 }
 
-export function listarDocumentos(clientes: Cliente[]): DocumentoDeCliente[] {
-  return clientes.flatMap((cliente) => cliente.documentos);
-}
-
-export function contarDocumentosPorEstado(clientes: Cliente[]): Record<EstadoDeDocumento, number> {
-  const conteo: Record<EstadoDeDocumento, number> = { Pendiente: 0, Aprobado: 0, Rechazado: 0 };
-  for (const documento of listarDocumentos(clientes)) {
-    conteo[documento.estado] += 1;
+export function contarClientesPorVerificacion(clientes: Cliente[]): Record<EstadoDeVerificacion, number> {
+  const conteo: Record<EstadoDeVerificacion, number> = { Pendiente: 0, Verificada: 0, Rechazada: 0 };
+  for (const cliente of clientes) {
+    conteo[cliente.verificacion.estado] += 1;
   }
   return conteo;
 }
 
-// ───────────── Persistencia ÚNICAMENTE LOCAL ─────────────
-// Las decisiones del administrador se guardan en el localStorage de este navegador para que
-// sobrevivan a una recarga. NO se envían a ningún servidor ni se guardan en MySQL: otro
-// navegador u otro administrador no las verá. Cuando exista el endpoint de revisión, estas dos
-// funciones son las que hay que sustituir por las llamadas a la API.
+const CLAVE_DE_REVISIONES_LOCALES = "ql-verificaciones-de-ine-v2";
 
-const CLAVE_DE_REVISIONES_LOCALES = "ql-revisiones-de-documentos-v1";
-
-function esRevisionValida(valor: unknown): valor is RevisionDeDocumento {
+function esRevisionValida(valor: unknown): valor is VerificacionDeIne {
   if (typeof valor !== "object" || valor === null) {
     return false;
   }
   const revision = valor as Record<string, unknown>;
-  const estadoValido = revision.estado === "Aprobado" || revision.estado === "Rechazado";
+  const estadoValido = revision.estado === "Verificada" || revision.estado === "Rechazada";
   return estadoValido && typeof revision.fechaDeRevision === "string" && typeof revision.motivoDeRechazo === "string";
 }
 
-export function leerRevisionesLocales(): Record<string, RevisionDeDocumento> {
+// Recupera del navegador las revisiones ya hechas
+export function leerRevisionesLocales(): Record<string, VerificacionDeIne> {
   try {
     const texto = window.localStorage.getItem(CLAVE_DE_REVISIONES_LOCALES);
     if (!texto) {
@@ -95,10 +74,10 @@ export function leerRevisionesLocales(): Record<string, RevisionDeDocumento> {
     if (typeof datos !== "object" || datos === null) {
       return {};
     }
-    const revisiones: Record<string, RevisionDeDocumento> = {};
-    for (const [idDelDocumento, revision] of Object.entries(datos as Record<string, unknown>)) {
+    const revisiones: Record<string, VerificacionDeIne> = {};
+    for (const [idDelCliente, revision] of Object.entries(datos as Record<string, unknown>)) {
       if (esRevisionValida(revision)) {
-        revisiones[idDelDocumento] = revision;
+        revisiones[idDelCliente] = revision;
       }
     }
     return revisiones;
@@ -107,7 +86,8 @@ export function leerRevisionesLocales(): Record<string, RevisionDeDocumento> {
   }
 }
 
-export function guardarRevisionesLocales(revisiones: Record<string, RevisionDeDocumento>): boolean {
+// Guarda las revisiones en el navegador
+export function guardarRevisionesLocales(revisiones: Record<string, VerificacionDeIne>): boolean {
   try {
     window.localStorage.setItem(CLAVE_DE_REVISIONES_LOCALES, JSON.stringify(revisiones));
     return true;
@@ -116,17 +96,13 @@ export function guardarRevisionesLocales(revisiones: Record<string, RevisionDeDo
   }
 }
 
-// Una revisión guardada solo se aplica a un documento que en los datos de origen sigue pendiente,
-// para no sobrescribir decisiones que vengan de otra fuente.
-export function aplicarRevisiones(clientes: Cliente[], revisiones: Record<string, RevisionDeDocumento>): Cliente[] {
+// Pone a cada cliente el resultado de su revisión
+export function aplicarRevisiones(clientes: Cliente[], revisiones: Record<string, VerificacionDeIne>): Cliente[] {
   return clientes.map((cliente) => {
-    const documentos = cliente.documentos.map((documento) => {
-      const revision = revisiones[documento.id];
-      if (!revision || documento.estado !== "Pendiente") {
-        return documento;
-      }
-      return { ...documento, estado: revision.estado, fechaDeRevision: revision.fechaDeRevision, motivoDeRechazo: revision.motivoDeRechazo };
-    });
-    return { ...cliente, documentos, verificacion: { estado: calcularEstadoDeVerificacion(documentos) } };
+    const revision = revisiones[cliente.id];
+    if (!revision || cliente.verificacion.estado !== "Pendiente") {
+      return cliente;
+    }
+    return { ...cliente, verificacion: revision };
   });
 }

@@ -6,12 +6,14 @@ import { Icono } from "../comunes/Icono";
 
 type OpcionDeFiltro = { valor: string; etiqueta: string };
 
-const OPCIONES_DE_ESTADO: OpcionDeFiltro[] = [
-  { valor: "todos", etiqueta: "Todos" },
-  { valor: "Pendiente", etiqueta: "Pendiente" },
-  { valor: "Confirmado", etiqueta: "Confirmado" },
-  { valor: "Realizado", etiqueta: "Realizado" },
-  { valor: "Cancelado", etiqueta: "Cancelado" },
+const OPCIONES_DE_ETAPA: OpcionDeFiltro[] = [
+  { valor: "todas", etiqueta: "Todas" },
+  { valor: "activas", etiqueta: "Activas" },
+  { valor: "Solicitud enviada", etiqueta: "Solicitud enviada" },
+  { valor: "Asignando colaborador", etiqueta: "Asignando colaborador" },
+  { valor: "Servicio confirmado", etiqueta: "Servicio confirmado" },
+  { valor: "Servicio finalizado", etiqueta: "Servicio finalizado" },
+  { valor: "Cancelada", etiqueta: "Cancelada" },
 ];
 
 const OPCIONES_DE_FECHA_DEL_TRABAJO: OpcionDeFiltro[] = [
@@ -28,10 +30,10 @@ const OPCIONES_DE_FECHA_DE_SOLICITUD: OpcionDeFiltro[] = [
   { valor: "7dias", etiqueta: "Últimos 7 días" },
 ];
 
-const OPCIONES_DE_ASIGNACION: OpcionDeFiltro[] = [
-  { valor: "todas", etiqueta: "Todas" },
-  { valor: "sinAsignar", etiqueta: "Sin asignar" },
-  { valor: "asignadas", etiqueta: "Con trabajador" },
+const OPCIONES_DE_ELECCION: OpcionDeFiltro[] = [
+  { valor: "todas", etiqueta: "Cualquiera" },
+  { valor: "Cliente", etiqueta: "Elegido por el cliente" },
+  { valor: "Automática", etiqueta: "Asignación automática" },
 ];
 
 type SelectorDeFiltroProps = {
@@ -67,9 +69,11 @@ type BarraDeFiltrosDeSolicitudesProps = {
   onRestablecerFiltros: () => void;
 };
 
+// Búsqueda y filtros de la lista de solicitudes
 export function BarraDeFiltrosDeSolicitudes({ filtros, totalDeSolicitudes, solicitudesVisibles, onCambiarFiltros, onRestablecerFiltros }: BarraDeFiltrosDeSolicitudesProps) {
+  // Los filtros avanzados se abren solos si ya hay alguno puesto
   const [filtrosAvanzadosVisibles, setFiltrosAvanzadosVisibles] = useState(
-    filtros.fechaDelTrabajo !== "todas" || filtros.fechaDeSolicitud !== "todas" || filtros.asignacion !== "todas",
+    filtros.fechaDelTrabajo !== "todas" || filtros.fechaDeSolicitud !== "todas" || filtros.eleccion !== "todas",
   );
   const hayFiltrosActivos = tieneFiltrosActivos(filtros);
 
@@ -78,13 +82,15 @@ export function BarraDeFiltrosDeSolicitudes({ filtros, totalDeSolicitudes, solic
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
         <div className="relative flex-1">
           <Icono nombre="buscar" className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate" />
-          <input type="search" value={filtros.busqueda} onChange={(evento) => onCambiarFiltros({ ...filtros, busqueda: evento.target.value })} placeholder="Buscar por ID, cliente, servicio, dirección o trabajador" aria-label="Buscar solicitudes" className="field pl-11" />
+          <input type="search" value={filtros.busqueda} onChange={(evento) => onCambiarFiltros({ ...filtros, busqueda: evento.target.value })} placeholder="Buscar por ID, cliente, servicio, dirección o colaborador" aria-label="Buscar solicitudes" className="field pl-11" />
         </div>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar por estado">
-          {OPCIONES_DE_ESTADO.map((opcion) => {
-            const estaSeleccionada = filtros.estado === opcion.valor;
+      </div>
+      <div className="mt-4">
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrar por seguimiento">
+          {OPCIONES_DE_ETAPA.map((opcion) => {
+            const estaSeleccionada = filtros.etapa === opcion.valor;
             return (
-              <button key={opcion.valor} onClick={() => onCambiarFiltros({ ...filtros, estado: opcion.valor as FiltrosDeSolicitudes["estado"] })} aria-pressed={estaSeleccionada} className={`cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition duration-300 ${estaSeleccionada ? "bg-navy text-white" : "bg-beige text-storm hover:bg-sky/50"}`}>
+              <button key={opcion.valor} onClick={() => onCambiarFiltros({ ...filtros, etapa: opcion.valor as FiltrosDeSolicitudes["etapa"] })} aria-pressed={estaSeleccionada} className={`cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition duration-300 ${estaSeleccionada ? "bg-navy text-white" : "bg-beige text-storm hover:bg-sky/50"}`}>
                 {opcion.etiqueta}
               </button>
             );
@@ -107,7 +113,7 @@ export function BarraDeFiltrosDeSolicitudes({ filtros, totalDeSolicitudes, solic
           <div className="grid gap-4 sm:grid-cols-3">
             <SelectorDeFiltro id="filtro-fecha-del-trabajo" etiqueta="Fecha del trabajo" valorSeleccionado={filtros.fechaDelTrabajo} opciones={OPCIONES_DE_FECHA_DEL_TRABAJO} onCambiar={(valor) => onCambiarFiltros({ ...filtros, fechaDelTrabajo: valor as FiltrosDeSolicitudes["fechaDelTrabajo"] })} />
             <SelectorDeFiltro id="filtro-fecha-de-solicitud" etiqueta="Fecha de solicitud" valorSeleccionado={filtros.fechaDeSolicitud} opciones={OPCIONES_DE_FECHA_DE_SOLICITUD} onCambiar={(valor) => onCambiarFiltros({ ...filtros, fechaDeSolicitud: valor as FiltrosDeSolicitudes["fechaDeSolicitud"] })} />
-            <SelectorDeFiltro id="filtro-asignacion" etiqueta="Trabajador" valorSeleccionado={filtros.asignacion} opciones={OPCIONES_DE_ASIGNACION} onCambiar={(valor) => onCambiarFiltros({ ...filtros, asignacion: valor as FiltrosDeSolicitudes["asignacion"] })} />
+            <SelectorDeFiltro id="filtro-eleccion" etiqueta="Elección del colaborador" valorSeleccionado={filtros.eleccion} opciones={OPCIONES_DE_ELECCION} onCambiar={(valor) => onCambiarFiltros({ ...filtros, eleccion: valor as FiltrosDeSolicitudes["eleccion"] })} />
           </div>
         </div>
       )}

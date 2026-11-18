@@ -26,6 +26,7 @@ type AparecerAlDesplazarProps = {
   className?: string;
 };
 
+// Anima el contenido cuando entra en pantalla
 export function AparecerAlDesplazar({ children, retrasoEnMilisegundos = 0, className = "" }: AparecerAlDesplazarProps) {
   const { elementoRef, fueVisto } = useElementoVisible<HTMLDivElement>();
   const estilo = { "--delay": `${retrasoEnMilisegundos}ms` } as CSSProperties;

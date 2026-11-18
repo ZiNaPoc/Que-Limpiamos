@@ -10,12 +10,9 @@ import { CampoDeFormulario } from "../components/comunes/CampoDeFormulario";
 import { Icono } from "../components/comunes/Icono";
 import { InsigniaDeDatosDeDemostracion, Puntuacion } from "../components/comunes/Insignias";
 
-// Las reseñas son las calificaciones de «Califica tu servicio» (1 a 5 escobas y un comentario).
-// Se consultan aquí; el administrador no las edita ni las borra, porque forman la reputación
-// que el cliente ve al elegir colaborador.
-
 const OPCIONES_DE_PUNTUACION = ["Todas", "5", "4", "3", "2", "1"];
 
+// Reseñas: calificaciones de los clientes con filtros
 export function ResenasPage({ onNavegar }: { onNavegar: Navegar }) {
   const { solicitudes } = useSolicitudes();
   const { trabajadores } = useTrabajadores();
@@ -42,6 +39,7 @@ export function ResenasPage({ onNavegar }: { onNavegar: Navegar }) {
     .map((trabajador) => ({ trabajador, reputacion: calcularReputacion(solicitudes, trabajador.id) }))
     .sort((a, b) => (b.reputacion.promedio ?? -1) - (a.reputacion.promedio ?? -1));
   const hayFiltros = busqueda.trim() !== "" || puntuacion !== "Todas" || idDelTrabajador !== "todos";
+  const finalizadosSinCalificar = solicitudes.filter((solicitud) => solicitud.estado === "Realizado" && !solicitud.calificacion).length;
 
   return (
     <div>
@@ -49,9 +47,9 @@ export function ResenasPage({ onNavegar }: { onNavegar: Navegar }) {
         <h1 className="text-4xl font-extrabold text-navy">Reseñas y reputación</h1>
         <InsigniaDeDatosDeDemostracion />
       </div>
-      <p className="mt-2 max-w-3xl text-sm text-slate">Calificaciones que los clientes dan desde «Califica tu servicio» al terminar cada limpieza. Forman la reputación de cada colaborador.</p>
+      <p className="mt-2 max-w-3xl text-sm text-slate">Calificaciones que los clientes dan desde «Califica tu servicio» cuando el servicio se marca como finalizado. Forman la reputación de cada colaborador.</p>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2">
+      <div className="mt-8 grid gap-4 sm:grid-cols-3">
         <div className="surface leaf-sm p-5 sm:p-6">
           <p className="flex items-center gap-3 font-display text-3xl font-extrabold text-navy">
             {promedioGeneral !== null ? promedioGeneral.toFixed(1) : "—"}
@@ -62,6 +60,11 @@ export function ResenasPage({ onNavegar }: { onNavegar: Navegar }) {
         <div className="surface leaf-sm p-5 sm:p-6">
           <p className="font-display text-3xl font-extrabold text-navy">{resenas.length}</p>
           <p className="mt-1 text-xs font-bold uppercase tracking-widest text-slate">Reseñas totales</p>
+        </div>
+        <div className="surface leaf-sm p-5 sm:p-6">
+          <p className="font-display text-3xl font-extrabold text-navy">{finalizadosSinCalificar}</p>
+          <p className="mt-1 text-xs font-bold uppercase tracking-widest text-slate">Finalizados sin calificar</p>
+          <p className="mt-1 text-xs text-slate">La app ya le pidió al cliente su calificación.</p>
         </div>
       </div>
 

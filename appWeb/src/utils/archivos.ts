@@ -1,3 +1,4 @@
+// Límite de tamaño y tipos de archivo permitidos
 export const TAMANO_MAXIMO_DE_ARCHIVO_EN_BYTES = 5 * 1024 * 1024;
 
 export const TIPOS_DE_DOCUMENTO_PERMITIDOS = ["application/pdf", "image/jpeg", "image/png"];
@@ -40,6 +41,7 @@ async function leerPrimerosBytes(archivo: File, cantidad: number): Promise<Uint8
   return new Uint8Array(fragmento);
 }
 
+// Revisa tamaño, tipo y contenido real del archivo
 export async function validarArchivo(archivo: File, tiposPermitidos: string[]): Promise<string | null> {
   const tiposLegibles = describirTiposPermitidos(tiposPermitidos);
   if (!tiposPermitidos.includes(archivo.type)) {

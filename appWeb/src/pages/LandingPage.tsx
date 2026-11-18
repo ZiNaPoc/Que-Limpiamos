@@ -10,6 +10,7 @@ type AccionesDeLaLanding = {
   onIrASeccion: (idDeSeccion: string) => void;
 };
 
+// Portada con los botones principales
 function SeccionDePortada({ onAcceder, onIrASeccion }: AccionesDeLaLanding) {
   return (
     <section id="inicio" className="relative overflow-hidden px-5 pb-24 pt-32 sm:px-8 lg:pt-40">
@@ -22,7 +23,7 @@ function SeccionDePortada({ onAcceder, onIrASeccion }: AccionesDeLaLanding) {
             <TituloDeMarca className="w-full max-w-xl" />
           </h1>
           <p className="rise mt-8 max-w-md text-lg leading-relaxed text-slate" style={{ animationDelay: "180ms" }}>
-            Un sitio web que agiliza el trabajo de contratar y gestionar servicios de limpieza: claro, con precio estimado y con personas de confianza.
+            Un sitio web que agiliza el trabajo de contratar y gestionar servicios de limpieza: claro, con seguimiento paso a paso y con personas de confianza.
           </p>
           <div className="rise mt-10 flex flex-wrap gap-3" style={{ animationDelay: "280ms" }}>
             <button className="btn btn-primary" onClick={onAcceder}>
@@ -38,8 +39,8 @@ function SeccionDePortada({ onAcceder, onIrASeccion }: AccionesDeLaLanding) {
         <div className="rise relative mx-auto w-full max-w-sm lg:col-span-5" style={{ animationDelay: "200ms" }}>
           <ImagenOIlustracion rutaDeImagen={IMAGENES.portada} textoAlternativo="Ilustración de un servicio de limpieza en casa" ilustracionDeRespaldo="casa" className="arch aspect-[4/5] shadow-lift" />
           <div className="float leaf-sm absolute -left-6 top-16 bg-white px-4 py-3 shadow-lift sm:-left-12" style={{ "--delay": "0ms" } as CSSProperties}>
-            <p className="text-xs font-bold text-slate">Cotización</p>
-            <p className="font-display text-xl font-extrabold text-navy">Estimada</p>
+            <p className="text-xs font-bold text-slate">Seguimiento</p>
+            <p className="font-display text-xl font-extrabold text-navy">Paso a paso</p>
           </div>
           <div className="float leaf-sm absolute -right-4 bottom-20 bg-navy px-4 py-3 text-white shadow-lift sm:-right-10" style={{ "--delay": "1500ms" } as CSSProperties}>
             <p className="text-xs font-bold text-moss">Reputación</p>
@@ -53,11 +54,12 @@ function SeccionDePortada({ onAcceder, onIrASeccion }: AccionesDeLaLanding) {
 
 const DATOS_DE_LA_HISTORIA = [
   { titulo: "Nace de…", texto: "Un proyecto de la UT Cancún que aplica Design Thinking para entender a clientes y trabajadores de limpieza." },
-  { titulo: "¿Qué resuelve?", texto: "Contratar limpieza sin depender de recomendaciones informales: servicio claro, precio estimado y reputación visible." },
-  { titulo: "¿Cómo funciona?", texto: "Desde la app eliges servicio, dirección, fecha y horario. El precio final se acuerda directamente." },
-  { titulo: "¿Para quiénes?", texto: "Clientes que buscan limpieza de confianza en Cancún y un administrador que gestiona trabajadores y solicitudes." },
+  { titulo: "¿Qué resuelve?", texto: "Contratar limpieza sin depender de recomendaciones informales: servicios claros, colaboradores con horario y reputación visible." },
+  { titulo: "¿Cómo funciona?", texto: "Desde la app eliges el servicio y a tu colaborador, o pides que te asignen uno. Los detalles se acuerdan directamente con él." },
+  { titulo: "¿Para quiénes?", texto: "Clientes que buscan limpieza de confianza en Cancún y un administrador que gestiona colaboradores y solicitudes." },
 ];
 
+// Quiénes somos
 function SeccionQuienesSomos() {
   return (
     <section id="quienes-somos" className="relative px-5 py-24 sm:px-8">
@@ -94,11 +96,12 @@ function SeccionQuienesSomos() {
 
 const OBJETIVOS: { titulo: string; texto: string; ilustracion: NombreDeIlustracion }[] = [
   { titulo: "Interfaz intuitiva", texto: "Registro, búsqueda y contratación en pocos pasos.", ilustracion: "intuitiva" },
-  { titulo: "Confianza", texto: "Verificación de identidad para clientes y trabajadores.", ilustracion: "confianza" },
-  { titulo: "Cotización estimada", texto: "Precio según medidas del lugar y tipo de limpieza.", ilustracion: "cotizacion" },
-  { titulo: "Reputación", texto: "Reportes y calificaciones para cada trabajador.", ilustracion: "reputacion" },
+  { titulo: "Confianza", texto: "Verificación de identidad para clientes y colaboradores.", ilustracion: "confianza" },
+  { titulo: "Elige a tu colaborador", texto: "Perfiles con especialidades y horarios, o asignación automática.", ilustracion: "equipo" },
+  { titulo: "Reputación", texto: "Calificaciones de los clientes para cada colaborador.", ilustracion: "reputacion" },
 ];
 
+// Objetivos del proyecto
 function SeccionObjetivos() {
   return (
     <section id="objetivos" className="relative bg-navy text-white">
@@ -125,6 +128,7 @@ function SeccionObjetivos() {
   );
 }
 
+// Botón de descarga; si aún no hay enlace, muestra un aviso
 function BotonDeDescarga() {
   const [mensajeProvisional, setMensajeProvisional] = useState("");
 
@@ -152,6 +156,7 @@ function BotonDeDescarga() {
   );
 }
 
+// Descarga de la app móvil
 function SeccionDescargaDeLaApp() {
   return (
     <section id="app" className="relative overflow-hidden bg-moon px-5 py-28 sm:px-8">
@@ -162,10 +167,10 @@ function SeccionDescargaDeLaApp() {
           <h2 className="mt-3 text-4xl font-extrabold text-navy sm:text-5xl">Descarga nuestra aplicación</h2>
           <div className="mt-8 space-y-6 leading-relaxed text-slate">
             <p>
-              <strong className="font-display text-lg text-navy">App móvil. </strong>Los clientes contratan, cotizan y califican desde su teléfono. Invitamos a descargarla para empezar.
+              <strong className="font-display text-lg text-navy">App móvil. </strong>Los clientes solicitan, siguen y califican sus servicios desde su teléfono. Invitamos a descargarla para empezar.
             </p>
             <p>
-              <strong className="font-display text-lg text-navy">App web. </strong>El administrador gestiona trabajadores, catálogo, solicitudes y reportes. Se necesita iniciar sesión con la cuenta creada en la app para entrar aquí.
+              <strong className="font-display text-lg text-navy">App web. </strong>El administrador gestiona clientes, colaboradores, catálogo, solicitudes y reseñas. Se entra con la cuenta de administrador.
             </p>
           </div>
           <div className="mt-10">
@@ -182,6 +187,7 @@ function SeccionDescargaDeLaApp() {
 
 const ILUSTRACIONES_DE_ROTACION: NombreDeIlustracion[] = ["casa", "app"];
 
+// Invitación a entrar al panel
 function SeccionAcceso({ onAcceder }: { onAcceder: () => void }) {
   const [indiceDeLaImagenVisible, setIndiceDeLaImagenVisible] = useState(0);
   const [cantidadDeGiros, setCantidadDeGiros] = useState(0);
@@ -224,6 +230,7 @@ function SeccionAcceso({ onAcceder }: { onAcceder: () => void }) {
   );
 }
 
+// Página pública: las secciones van en el orden del menú
 export function LandingPage({ onAcceder, onIrASeccion }: AccionesDeLaLanding) {
   return (
     <main>

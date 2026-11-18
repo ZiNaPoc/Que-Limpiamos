@@ -1,12 +1,15 @@
 import type { HorarioDeTrabajo, Trabajador } from "./tipos";
 
-export const DOCUMENTOS_REQUERIDOS = ["Identificación oficial", "Comprobante de domicilio", "Carta de antecedentes"];
+// Documentos que debe entregar cada colaborador
+export const DOCUMENTOS_REQUERIDOS = ["Identificación oficial", "Comprobante de domicilio"];
 
 const LUNES_A_SABADO = [1, 2, 3, 4, 5, 6];
 const LUNES_A_VIERNES = [1, 2, 3, 4, 5];
 
+// Horario por defecto: lunes a sábado
 export const HORARIO_PREDETERMINADO: HorarioDeTrabajo = { dias: LUNES_A_SABADO, horaDeInicio: "09:00", horaDeFin: "18:00" };
 
+// Datos de ejemplo
 export const TRABAJADORES_DE_DEMOSTRACION: Trabajador[] = [
   {
     id: "W-01",
@@ -16,7 +19,8 @@ export const TRABAJADORES_DE_DEMOSTRACION: Trabajador[] = [
     direccion: "SM 63, Av. Chichén Itzá, Cancún",
     especialidades: ["C-02", "C-05"],
     horario: { dias: LUNES_A_SABADO, horaDeInicio: "09:00", horaDeFin: "18:00" },
-    documentosEntregados: ["Identificación oficial", "Comprobante de domicilio", "Carta de antecedentes"],
+    documentosEntregados: ["Identificación oficial", "Comprobante de domicilio"],
+    estado: "Activo",
   },
   {
     id: "W-02",
@@ -26,7 +30,8 @@ export const TRABAJADORES_DE_DEMOSTRACION: Trabajador[] = [
     direccion: "Región 100, Calle 48 Norte, Cancún",
     especialidades: ["C-01", "C-04"],
     horario: { dias: LUNES_A_VIERNES, horaDeInicio: "08:00", horaDeFin: "15:00" },
-    documentosEntregados: ["Identificación oficial", "Comprobante de domicilio", "Carta de antecedentes"],
+    documentosEntregados: ["Identificación oficial", "Comprobante de domicilio"],
+    estado: "Activo",
   },
   {
     id: "W-03",
@@ -37,6 +42,7 @@ export const TRABAJADORES_DE_DEMOSTRACION: Trabajador[] = [
     especialidades: ["C-01", "C-02", "C-05"],
     horario: { dias: [0, 1, 2, 3, 4, 5, 6], horaDeInicio: "08:00", horaDeFin: "16:00" },
     documentosEntregados: ["Identificación oficial", "Comprobante de domicilio"],
+    estado: "Activo",
   },
   {
     id: "W-04",
@@ -46,10 +52,12 @@ export const TRABAJADORES_DE_DEMOSTRACION: Trabajador[] = [
     direccion: "SM 91, Calle Ceiba, Cancún",
     especialidades: ["C-01", "C-03"],
     horario: { dias: [0, 1, 2, 3, 4, 5, 6], horaDeInicio: "10:00", horaDeFin: "19:00" },
-    documentosEntregados: ["Identificación oficial", "Comprobante de domicilio", "Carta de antecedentes"],
+    documentosEntregados: ["Identificación oficial", "Comprobante de domicilio"],
+    estado: "Activo",
   },
 ];
 
+// Busca un colaborador por su id
 export function buscarTrabajador(trabajadores: Trabajador[], idDelTrabajador: string | null): Trabajador | undefined {
   if (!idDelTrabajador) {
     return undefined;

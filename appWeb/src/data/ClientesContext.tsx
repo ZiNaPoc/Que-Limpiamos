@@ -1,65 +1,55 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
-import { aplicarRevisiones, evaluarAprobacion, evaluarRevision, guardarRevisionesLocales, leerRevisionesLocales, validarMotivoDeRechazo } from "../utils/documentosDeClientes";
+import { aplicarRevisiones, evaluarAprobacionDeIne, evaluarRevisionDeIne, guardarRevisionesLocales, leerRevisionesLocales, validarMotivoDeRechazo } from "../utils/documentosDeClientes";
 import { crearClientesDeDemostracion } from "./clientesDemo";
-import type { Cliente, DocumentoDeCliente, ResultadoDeOperacion, RevisionDeDocumento } from "./tipos";
-
-// Los clientes se registran desde la app móvil (nombre, teléfono, correo y su INE por ambos lados).
-// El administrador no edita sus datos —el cliente lo hace desde «Mi perfil»—; solo revisa cada
-// documento y lo aprueba o lo rechaza con un motivo.
-//
-// IMPORTANTE: mientras no exista el backend de esta función, las decisiones se guardan solo en el
-// localStorage de este navegador (ver utils/documentosDeClientes.ts). No llegan al servidor.
+import type { Cliente, ResultadoDeOperacion, VerificacionDeIne } from "./tipos";
 
 type ValorDelContextoDeClientes = {
   clientes: Cliente[];
-  aprobarDocumento: (idDelDocumento: string) => ResultadoDeOperacion;
-  rechazarDocumento: (idDelDocumento: string, motivo: string) => ResultadoDeOperacion;
+  aprobarIne: (idDelCliente: string) => ResultadoDeOperacion;
+  rechazarIne: (idDelCliente: string, motivo: string) => ResultadoDeOperacion;
 };
 
 const ClientesContext = createContext<ValorDelContextoDeClientes | null>(null);
 
+// Aviso si el navegador no pudo guardar la revisión
 const AVISO_SIN_GUARDADO_LOCAL = " No se pudo guardar en este navegador; se perderá al recargar.";
 
+// Guarda los clientes y sus revisiones de INE
 export function ClientesProvider({ children }: { children: ReactNode }) {
   const [clientesDeOrigen] = useState<Cliente[]>(() => crearClientesDeDemostracion(new Date()));
-  const [revisiones, setRevisiones] = useState<Record<string, RevisionDeDocumento>>(leerRevisionesLocales);
+  // Las revisiones se guardan en el navegador
+  const [revisiones, setRevisiones] = useState<Record<string, VerificacionDeIne>>(leerRevisionesLocales);
+  // Mezcla los clientes con el resultado de su revisión
   const clientes = aplicarRevisiones(clientesDeOrigen, revisiones);
 
-  function buscarDocumento(idDelDocumento: string): { cliente: Cliente; documento: DocumentoDeCliente } | undefined {
-    for (const cliente of clientes) {
-      const documento = cliente.documentos.find((documentoBuscado) => documentoBuscado.id === idDelDocumento);
-      if (documento) {
-        return { cliente, documento };
-      }
-    }
-    return undefined;
-  }
-
-  function registrarRevision(idDelDocumento: string, revision: RevisionDeDocumento): boolean {
-    const revisionesNuevas = { ...revisiones, [idDelDocumento]: revision };
+  // Guarda la decisión (aprobada o rechazada)
+  function registrarRevision(idDelCliente: string, revision: VerificacionDeIne): boolean {
+    const revisionesNuevas = { ...revisiones, [idDelCliente]: revision };
     setRevisiones(revisionesNuevas);
     return guardarRevisionesLocales(revisionesNuevas);
   }
 
-  function aprobarDocumento(idDelDocumento: string): ResultadoDeOperacion {
-    const encontrado = buscarDocumento(idDelDocumento);
-    if (!encontrado) {
-      return { exito: false, mensaje: "No se encontró el documento." };
+  // Aprobar INE: solo si ya envió frente y reverso
+  function aprobarIne(idDelCliente: string): ResultadoDeOperacion {
+    const cliente = buscarCliente(clientes, idDelCliente);
+    if (!cliente) {
+      return { exito: false, mensaje: "No se encontró al cliente." };
     }
-    const permiso = evaluarAprobacion(encontrado.documento);
+    const permiso = evaluarAprobacionDeIne(cliente);
     if (!permiso.exito) {
       return permiso;
     }
-    const guardado = registrarRevision(idDelDocumento, { estado: "Aprobado", fechaDeRevision: new Date().toISOString(), motivoDeRechazo: "" });
-    return { exito: true, mensaje: `${encontrado.documento.tipo} de ${encontrado.cliente.nombre} aprobado.${guardado ? "" : AVISO_SIN_GUARDADO_LOCAL}` };
+    const guardado = registrarRevision(idDelCliente, { estado: "Verificada", fechaDeRevision: new Date().toISOString(), motivoDeRechazo: "" });
+    return { exito: true, mensaje: `INE de ${cliente.nombre} aprobada.${guardado ? "" : AVISO_SIN_GUARDADO_LOCAL}` };
   }
 
-  function rechazarDocumento(idDelDocumento: string, motivo: string): ResultadoDeOperacion {
-    const encontrado = buscarDocumento(idDelDocumento);
-    if (!encontrado) {
-      return { exito: false, mensaje: "No se encontró el documento." };
+  // Rechazar INE: pide un motivo para el cliente
+  function rechazarIne(idDelCliente: string, motivo: string): ResultadoDeOperacion {
+    const cliente = buscarCliente(clientes, idDelCliente);
+    if (!cliente) {
+      return { exito: false, mensaje: "No se encontró al cliente." };
     }
-    const permiso = evaluarRevision(encontrado.documento);
+    const permiso = evaluarRevisionDeIne(cliente);
     if (!permiso.exito) {
       return permiso;
     }
@@ -67,11 +57,11 @@ export function ClientesProvider({ children }: { children: ReactNode }) {
     if (errorDelMotivo) {
       return { exito: false, mensaje: errorDelMotivo };
     }
-    const guardado = registrarRevision(idDelDocumento, { estado: "Rechazado", fechaDeRevision: new Date().toISOString(), motivoDeRechazo: motivo.trim() });
-    return { exito: true, mensaje: `${encontrado.documento.tipo} de ${encontrado.cliente.nombre} rechazado.${guardado ? "" : AVISO_SIN_GUARDADO_LOCAL}` };
+    const guardado = registrarRevision(idDelCliente, { estado: "Rechazada", fechaDeRevision: new Date().toISOString(), motivoDeRechazo: motivo.trim() });
+    return { exito: true, mensaje: `INE de ${cliente.nombre} rechazada.${guardado ? "" : AVISO_SIN_GUARDADO_LOCAL}` };
   }
 
-  return <ClientesContext.Provider value={{ clientes, aprobarDocumento, rechazarDocumento }}>{children}</ClientesContext.Provider>;
+  return <ClientesContext.Provider value={{ clientes, aprobarIne, rechazarIne }}>{children}</ClientesContext.Provider>;
 }
 
 export function useClientes(): ValorDelContextoDeClientes {

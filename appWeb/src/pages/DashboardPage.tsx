@@ -8,12 +8,12 @@ import { PerfilPage } from "./PerfilPage";
 import { CatalogoPage } from "./CatalogoPage";
 import { ClientesPage } from "./ClientesPage";
 import { ResenasPage } from "./ResenasPage";
-import { ReportesPage } from "./ReportesPage";
 import { SolicitudesPage } from "./SolicitudesPage";
 import { TrabajadoresPage } from "./TrabajadoresPage";
 
 const CONSULTA_DE_PANTALLA_DE_ESCRITORIO = "(min-width: 1024px) and (hover: hover)";
 
+// Detecta si la pantalla es grande o chica para adaptar el menú
 function useMenuLateralCompacto() {
   const [esCompacto, setEsCompacto] = useState(() => window.matchMedia(CONSULTA_DE_PANTALLA_DE_ESCRITORIO).matches);
   useEffect(() => {
@@ -35,10 +35,13 @@ type DashboardPageProps = {
   onIrAQuienesSomos: () => void;
 };
 
+// Panel del administrador: menú lateral y la vista elegida
 export function DashboardPage({ sesion, onCerrarSesion, onIrAQuienesSomos }: DashboardPageProps) {
   const menuLateralEsCompacto = useMenuLateralCompacto();
+  // Vista abierta en el panel
   const [vistaActual, setVistaActual] = useState<VistaDelPanel>("inicio");
   const [cajonAbierto, setCajonAbierto] = useState(false);
+  // Datos con los que se abre una vista (filtros o un id)
   const [apertura, setApertura] = useState<AperturaDelPanel>(APERTURA_PREDETERMINADA);
   const [cantidadDeNavegaciones, setCantidadDeNavegaciones] = useState(0);
 
@@ -52,6 +55,7 @@ export function DashboardPage({ sesion, onCerrarSesion, onIrAQuienesSomos }: Das
     }
   }, [menuLateralEsCompacto]);
 
+  // Cambia de vista; todas las pantallas usan esta función
   function navegarA(vista: VistaDelPanel, aperturaNueva: AperturaDelPanel = APERTURA_PREDETERMINADA) {
     setVistaActual(vista);
     setApertura(aperturaNueva);
@@ -59,6 +63,7 @@ export function DashboardPage({ sesion, onCerrarSesion, onIrAQuienesSomos }: Das
     setCajonAbierto(false);
   }
 
+  // Elige qué pantalla mostrar
   function mostrarVistaActual() {
     if (vistaActual === "inicio") {
       return <InicioPage sesion={sesion} onNavegar={navegarA} />;
@@ -76,10 +81,7 @@ export function DashboardPage({ sesion, onCerrarSesion, onIrAQuienesSomos }: Das
       return <CatalogoPage />;
     }
     if (vistaActual === "clientes") {
-      return <ClientesPage apertura={apertura} onNavegar={navegarA} />;
-    }
-    if (vistaActual === "reportes") {
-      return <ReportesPage apertura={apertura} onNavegar={navegarA} />;
+      return <ClientesPage apertura={apertura} />;
     }
     return <ResenasPage onNavegar={navegarA} />;
   }

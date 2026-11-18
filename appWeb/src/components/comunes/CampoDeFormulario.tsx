@@ -7,6 +7,7 @@ type CampoDeFormularioProps = {
   children: ReactNode;
 };
 
+// Campo con etiqueta y mensaje de error
 export function CampoDeFormulario({ id, etiqueta, error, children }: CampoDeFormularioProps) {
   return (
     <div>
