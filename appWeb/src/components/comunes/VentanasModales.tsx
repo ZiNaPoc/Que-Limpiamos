@@ -9,9 +9,11 @@ type VentanaModalProps = {
   claseDeAncho?: string;
 };
 
+// Cuenta cuántas ventanas hay abiertas para bloquear el desplazamiento del fondo solo mientras haya alguna.
 let cantidadDeModalesAbiertos = 0;
 let estiloPrevioDelBody = { overflow: "", paddingRight: "" };
 
+// Bloquea el desplazamiento de la página de fondo (y evita que el contenido cmo q brinque por la barra de desplazamiento)
 function bloquearDesplazamientoDelFondo() {
   if (cantidadDeModalesAbiertos === 0) {
     const { style } = document.body;
@@ -25,6 +27,7 @@ function bloquearDesplazamientoDelFondo() {
   cantidadDeModalesAbiertos += 1;
 }
 
+// Devuelve el desplazamiento cuando se cierra la última ventana.
 function liberarDesplazamientoDelFondo() {
   cantidadDeModalesAbiertos -= 1;
   if (cantidadDeModalesAbiertos === 0) {
@@ -33,7 +36,7 @@ function liberarDesplazamientoDelFondo() {
   }
 }
 
-// Ventana flotante base: se cierra con Esc y mantiene el foco
+// Ventana flotante base: se cierra con Esc y mantiene el foco dentro
 export function VentanaModal({ idDelTitulo, onCerrar, children, claseDeAncho = "max-w-md" }: VentanaModalProps) {
   const panelRef = useAtrapaFoco<HTMLDivElement>(true, onCerrar);
 
@@ -61,7 +64,7 @@ type VentanaDeConfirmacionProps = {
   onCancelar: () => void;
 };
 
-// Pregunta "¿seguro?" mostrando los cambios que se harán
+// Pregunta "¿seguro?" mostrando la lista de cambios que se harán, con botones para volver o confirmar.
 export function VentanaDeConfirmacion({ titulo, lineasDeCambios, etiquetaDeConfirmar, onConfirmar, onCancelar }: VentanaDeConfirmacionProps) {
   return (
     <VentanaModal idDelTitulo="titulo-de-confirmacion" onCerrar={onCancelar}>

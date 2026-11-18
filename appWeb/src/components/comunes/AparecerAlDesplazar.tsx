@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
+// Avisa cuando un elemento entra en pantalla por primera vez (solo la primera vez).
 function useElementoVisible<T extends HTMLElement>() {
   const elementoRef = useRef<T>(null);
   const [fueVisto, setFueVisto] = useState(false);
@@ -26,7 +27,7 @@ type AparecerAlDesplazarProps = {
   className?: string;
 };
 
-// Anima el contenido cuando entra en pantalla
+// Anima el contenido cuando entra en pantalla al hacer scroll. Se usa en la landing.
 export function AparecerAlDesplazar({ children, retrasoEnMilisegundos = 0, className = "" }: AparecerAlDesplazarProps) {
   const { elementoRef, fueVisto } = useElementoVisible<HTMLDivElement>();
   const estilo = { "--delay": `${retrasoEnMilisegundos}ms` } as CSSProperties;

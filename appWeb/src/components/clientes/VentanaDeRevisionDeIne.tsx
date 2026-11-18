@@ -8,9 +8,10 @@ import { Icono } from "../comunes/Icono";
 import { InsigniaDeEstado } from "../comunes/Insignias";
 import { VentanaModal } from "../comunes/VentanasModales";
 
+// Si el archivo de la INE se puede abrir: comprobando, disponible o no disponible.
 type Disponibilidad = "comprobando" | "disponible" | "no-disponible";
 
-// Comprueba si el archivo del documento se puede abrir
+// Comprueba que el archivo exista y sea del tipo correcto (consulta rápida solo de encabezados). Así se evita mostrar un visor roto.
 function useDisponibilidadDelArchivo(archivo: ArchivoDeDocumento | null): [Disponibilidad, () => void] {
   const [disponibilidad, setDisponibilidad] = useState<Disponibilidad>(archivo ? "comprobando" : "no-disponible");
 
@@ -52,7 +53,7 @@ function MensajeDelVisor({ titulo, children }: { titulo: string; children: React
   );
 }
 
-// Muestra la imagen o el PDF de la INE
+// Muestra la imagen o el PDF de la INE. Si no hay archivo o no se puede abrir, muestra un mensaje que lo explica.
 function VisorDeDocumento({ archivo, descripcion, estaAmpliado }: { archivo: ArchivoDeDocumento | null; descripcion: string; estaAmpliado: boolean }) {
   const [disponibilidad, marcarNoDisponible] = useDisponibilidadDelArchivo(archivo);
 
@@ -88,6 +89,7 @@ function DatoDelDocumento({ etiqueta, children }: { etiqueta: string; children: 
   );
 }
 
+// Escribe fecha y hora, o "No disponible" si no hay.
 function describirFecha(fechaIso: string | null): string {
   if (!fechaIso) {
     return "No disponible";
@@ -95,7 +97,7 @@ function describirFecha(fechaIso: string | null): string {
   return `${formatearFechaNumerica(fechaIso)} · ${formatearHora(fechaIso)}`;
 }
 
-// Pasos: acciones → confirmar aprobación, o motivo → confirmar rechazo
+// Pasos de la ventana: elegir acción = confirmar aprobación; o escribir motivo = confirmar rechazo.
 type PasoDeLaRevision = "acciones" | "confirmar-aprobacion" | "motivo" | "confirmar-rechazo";
 
 type VentanaDeRevisionDeIneProps = {
@@ -104,7 +106,10 @@ type VentanaDeRevisionDeIneProps = {
   onResultado: (resultado: ResultadoDeOperacion) => void;
 };
 
-// Ventana para revisar la INE (frente y reverso) y aprobarla o rechazarla
+// REVISIÓN DE INE: ventana donde el administrador ve el frente y el reverso y decide.
+// Datos: el cliente con sus 2 documentos (cada uno con url y formato: imagen o PDF) y su estado de verificación.
+// Solo se decide si está Pendiente; para aprobar deben estar los dos lados. El resultado sale en el aviso temporal de ClientesPage.
+//Con backend: actualizar el estado de verificación del cliente.
 export function VentanaDeRevisionDeIne({ idDelCliente, onCerrar, onResultado }: VentanaDeRevisionDeIneProps) {
   const { clientes, aprobarIne, rechazarIne } = useClientes();
   const [indiceDelLado, setIndiceDelLado] = useState(0);
@@ -120,12 +125,12 @@ export function VentanaDeRevisionDeIne({ idDelCliente, onCerrar, onResultado }: 
 
   const documento = cliente.documentos[indiceDelLado] ?? cliente.documentos[0];
   const descripcion = documento ? `${documento.tipo} de ${cliente.nombre}` : "";
-  // Reglas: solo se revisa si está pendiente y con ambos lados
+  // Reglas: solo se revisa si está pendiente y con ambos lados para aprobar.
   const sePuedeRevisar = evaluarRevisionDeIne(cliente).exito;
   const permisoDeAprobacion = evaluarAprobacionDeIne(cliente);
   const { verificacion } = cliente;
 
-  // Valida el motivo antes de pedir confirmación
+  // Valida el motivo antes de pedir confirmación.
   function continuarAlRechazo() {
     const error = validarMotivoDeRechazo(motivo);
     if (error) {
@@ -143,7 +148,7 @@ export function VentanaDeRevisionDeIne({ idDelCliente, onCerrar, onResultado }: 
     onResultado(resultado);
   }
 
-  // Rechaza la INE con su motivo; si falla, regresa al motivo
+  // Rechaza la INE con su motivo; si falla, regresa al paso del motivo.
   function confirmarRechazo() {
     const resultado = rechazarIne(idDelCliente, motivo);
     setPaso(resultado.exito ? "acciones" : "motivo");
