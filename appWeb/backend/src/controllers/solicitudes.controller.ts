@@ -1,8 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
-import { prisma } from "../config/prisma";
 import { AppError } from "../errors/AppError";
+import * as solicitudesRepository from "../repository/solicitudes.repository";
 
-//VALIDAR LOS IDS
 function obtenerId(valor: string): number {
   const id = Number(valor);
 
@@ -13,52 +12,13 @@ function obtenerId(valor: string): number {
   return id;
 }
 
-//OBTENER LAS SOLICITUDES
 export async function obtenerSolicitudes(
   _req: Request,
   res: Response,
   next: NextFunction,
 ) {
   try {
-    const solicitudes = await prisma.solicitudes.findMany({
-      orderBy: {
-        created_at: "desc",
-      },
-      include: {
-        usuarios: {
-          select: {
-            id: true,
-            nombre_completo: true,
-            correo: true,
-            telefono: true,
-          },
-        },
-
-        servicios: {
-          select: {
-            id: true,
-            nombre: true,
-            descripcion: true,
-            precio_base: true,
-            duracion_estimada_min: true,
-            estado: true,
-          },
-        },
-
-        trabajadores: {
-          select: {
-            id: true,
-            nombre_completo: true,
-            telefono: true,
-            correo: true,
-            estado: true,
-          },
-        },
-
-        evidencias_solicitud: true,
-        resenas: true,
-      },
-    });
+    const solicitudes = await solicitudesRepository.obtenerTodas();
 
     const resultado = solicitudes.map((solicitud) => ({
       id: String(solicitud.id),
@@ -131,80 +91,79 @@ export async function obtenerSolicitudes(
 }
 
 export async function cambiarTrabajadorAsignado(
-    req: Request,
-    res: Response,
-    next: NextFunction
+  req: Request,
+  res: Response,
+  next: NextFunction,
 ) {
-    try {
-        const idSolicitud = obtenerId(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id);
-        
-        const valor = req.body?.trabajadorId;
+  try {
+    const idSolicitud = obtenerId(
+      Array.isArray(req.params.id) ? req.params.id[0] : req.params.id,
+    );
 
-        let trabajadorId: number | null = null;
+    const valor = req.body?.trabajadorId;
 
-        if(valor !==  null) {
-            trabajadorId = Number(valor);
+    let trabajadorId: number | null = null;
 
-            if( !Number.isSafeInteger(trabajadorId) || trabajadorId <= 0) {
-                throw new AppError (400, 'El ID del trabajador no es valido.');
-            }
-        }
+    if (valor !== null) {
+      trabajadorId = Number(valor);
 
-        const solicitud = await prisma.solicitudes.findUnique({
-            where: {id: idSolicitud},
-        });
-
-        if(!solicitud) {
-            throw new AppError(404, "No se encontro la solicitud");
-        }
-
-        if(solicitud.estado !== 'PENDIENTE') {
-            throw new AppError(409, 'Solo se puede asignar trabajadores a solicitudes pendientes');
-        }
-
-        if (trabajadorId !== null) {
-            const trabajador = await prisma.trabajadores.findUnique({
-                where: {id: trabajadorId},
-                include: {
-                    trabajador_servicios: {
-                        where: {servicio_id: solicitud.servicio_id}
-                    },
-                },
-            });
-
-            if(!trabajador){
-                throw new AppError(404, 'No se encontro el trabajador');
-            }
-
-            if(trabajador.estado !== 'ACTIVO'){
-                throw new AppError(409, 'El trabajador no esta activo');
-            }
-
-            if(trabajador.trabajador_servicios.length === 0 ) {
-                throw new AppError(400, 'El trabajador no tiene asignada la especialidad de este servicio');
-            }
-        }
-
-        const actualizada = await prisma.solicitudes.update({
-            where: {id: idSolicitud},
-            data: {
-                trabajador_id: trabajadorId,
-                updated_at: new Date(),
-            },
-        });
-
-        return res.status(200).json({
-            mensaje: 
-            trabajadorId === null
-                ? 'Se quito la asignacion del trabajador'
-                : 'Trabajador asignado correctamente',
-            solicitudId: String(actualizada.id),
-            trabajadorId:
-                actualizada.trabajador_id === null
-                    ? null
-                    : String(actualizada.trabajador_id),
-        });
-    } catch(error) {
-        next(error);
+      if (!Number.isSafeInteger(trabajadorId) || trabajadorId <= 0) {
+        throw new AppError(400, "El ID del trabajador no es valido.");
+      }
     }
+
+    const solicitud = await solicitudesRepository.buscarPorId(idSolicitud);
+
+    if (!solicitud) {
+      throw new AppError(404, "No se encontro la solicitud");
+    }
+
+    if (solicitud.estado !== "PENDIENTE") {
+      throw new AppError(
+        409,
+        "Solo se puede asignar trabajadores a solicitudes pendientes",
+      );
+    }
+
+    if (trabajadorId !== null) {
+      const trabajador = await solicitudesRepository.buscarTrabajadorConServicio(
+        trabajadorId,
+        solicitud.servicio_id,
+      );
+
+      if (!trabajador) {
+        throw new AppError(404, "No se encontro el trabajador");
+      }
+
+      if (trabajador.estado !== "ACTIVO") {
+        throw new AppError(409, "El trabajador no esta activo");
+      }
+
+      if (trabajador.trabajador_servicios.length === 0) {
+        throw new AppError(
+          400,
+          "El trabajador no tiene asignada la especialidad de este servicio",
+        );
+      }
+    }
+
+    const actualizada = await solicitudesRepository.actualizarTrabajador(
+      idSolicitud,
+      trabajadorId,
+    );
+
+    return res.status(200).json({
+      mensaje:
+        trabajadorId === null
+          ? "Se quito la asignacion del trabajador"
+          : "Trabajador asignado correctamente",
+      solicitudId: String(actualizada.id),
+      trabajadorId:
+        actualizada.trabajador_id === null
+          ? null
+          : String(actualizada.trabajador_id),
+    });
+  } catch (error) {
+    next(error);
+  }
 }
