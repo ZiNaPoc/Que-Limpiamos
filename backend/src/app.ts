@@ -29,4 +29,6 @@ app.use("/api/auth", authRoutes);
 app.use(rutaNoEncontrada);
 app.use(manejarErrores);
 
+app.get("/health", (_req, res) => res.json({ ok: true }));
+
 export default app;
