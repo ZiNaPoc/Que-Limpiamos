@@ -3,7 +3,7 @@ import { useClientes } from "../data/ClientesContext";
 import type { AperturaDelPanel, Cliente, DocumentoDeCliente, FiltroDeVerificacion, ResultadoDeOperacion } from "../data/tipos";
 import { contarClientesPorVerificacion, SECCIONES_DE_VERIFICACION } from "../utils/documentosDeClientes";
 import { formatearFechaNumerica, normalizarTexto } from "../utils/formato";
-//import { VentanaDeRevisionDeIne } from "../components/clientes/VentanaDeRevisionDeIne";
+import { VentanaDeRevisionDeIne } from "../components/clientes/VentanaDeRevisionDeIne";
 import { AvisoTemporal } from "../components/comunes/AvisoTemporal";
 import { Icono } from "../components/comunes/Icono";
 import { InsigniaDeDatosDeDemostracion, InsigniaDeEstado } from "../components/comunes/Insignias";
