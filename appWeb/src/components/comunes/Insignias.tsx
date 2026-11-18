@@ -2,7 +2,6 @@
 // Color de cada estado (de solicitud, INE, colaborador y servicio). Un estado que no esté aquí usa el color por defecto.
 
 const ESTILOS_POR_ESTADO: Record<string, { fondo: string; punto: string }> = {
-const ESTILOS_POR_ESTADO: Record<string, { fondo: string; punto: string }> = {
   "Solicitud enviada": { fondo: "bg-moon text-clay", punto: "bg-ochre" },
   "Asignando colaborador": { fondo: "bg-sky/70 text-storm", punto: "bg-lagoon" },
   "Servicio confirmado": { fondo: "bg-sky text-storm", punto: "bg-steel" },
