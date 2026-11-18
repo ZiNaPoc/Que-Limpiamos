@@ -18,16 +18,19 @@ import { InsigniaDeDatosDeDemostracion, InsigniaDeEstado } from "../components/c
 import { TarjetaDeIndicador } from "../components/comunes/TarjetaDeIndicador";
 import { VentanaDeConfirmacion } from "../components/comunes/VentanasModales";
 
-// Vista de la pantalla: lista, nuevo o editar
+// Indica si se muestra la lista de servicios, el formulario para crear uno o el de edición.
 type VistaDelCatalogo = { tipo: "lista" } | { tipo: "nuevo" } | { tipo: "editar"; idDelServicio: string };
 
+// Estados disponibles para filtrar los servicios.
 const FILTROS_DE_ESTADO_DEL_SERVICIO = ["Todos", "Activo", "Inactivo"];
 
+// Separa los servicios disponibles en la app de los que están desactivados.
 const GRUPOS_DEL_CATALOGO: { estado: EstadoDeServicio; titulo: string; descripcion: string }[] = [
   { estado: "Activo", titulo: "Disponibles en la app", descripcion: "Los clientes pueden verlos y solicitarlos." },
   { estado: "Inactivo", titulo: "Desactivados", descripcion: "No se muestran en la app." },
 ];
 
+// Cambia el estilo del filtro seleccionado para distinguirlo de los demás.
 function claseDelFiltroDeEstado(estaActivo: boolean) {
   const claseBase = "cursor-pointer rounded-full px-4 py-2 text-xs font-bold transition duration-300";
   if (estaActivo) {
@@ -44,6 +47,7 @@ type CampoNumericoProps = {
   onCambiar: (valor: string) => void;
 };
 
+// Campo numérico que muestra el precio y, si hace falta, su mensaje de error.
 function CampoNumerico({ id, etiqueta, valor, error, onCambiar }: CampoNumericoProps) {
   const idDelCampo = `servicio-${id}`;
   return (
@@ -59,18 +63,22 @@ type FormularioDeServicioProps = {
   onTerminar: (resultado: ResultadoDeOperacion) => void;
 };
 
-// Formulario para crear o editar un servicio
+// Este formulario sirve tanto para registrar un servicio como para editar uno existente.
+// Antes de guardar, revisa que los datos sean válidos y avisa si falta corregir algo.
+// Si no se modificó ningún dato, informa que no hay cambios pendientes.
 function FormularioDeServicio({ servicioEditado, onCancelar, onTerminar }: FormularioDeServicioProps) {
   const { servicios, registrarServicio, editarServicio } = useCatalogo();
+  // Guarda los datos del formulario. Al editar, carga primero la información del servicio seleccionado.
   const [borrador, setBorrador] = useState<BorradorDeServicio>(() => (servicioEditado ? crearBorradorDesdeServicio(servicioEditado) : BORRADOR_DE_SERVICIO_VACIO));
   const [errores, setErrores] = useState<ErroresDelServicio>({});
   const [mensajeGeneral, setMensajeGeneral] = useState("");
 
+  // Actualiza el borrador cada vez que cambia un campo del formulario.
   function cambiarCampo(campo: keyof BorradorDeServicio, valor: string) {
     setBorrador({ ...borrador, [campo]: valor });
   }
 
-  // Valida y guarda; si hay errores se marcan en el formulario
+  // Comprueba los datos antes de guardar el servicio.
   function handleEnviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     const idDelServicioEditado = servicioEditado ? servicioEditado.id : null;
@@ -93,6 +101,7 @@ function FormularioDeServicio({ servicioEditado, onCancelar, onTerminar }: Formu
     onTerminar(registrarServicio(borrador));
   }
 
+  // Agrega los atributos necesarios para que el error también sea identificado por lectores de pantalla.
   function propiedadesDeError(campo: keyof BorradorDeServicio) {
     return {
       "aria-invalid": Boolean(errores[campo]),
@@ -100,6 +109,7 @@ function FormularioDeServicio({ servicioEditado, onCancelar, onTerminar }: Formu
     };
   }
 
+  // Ajusta el título, el icono y el botón según se esté creando o editando un servicio.
   let titulo = "Nuevo servicio";
   let icono: "mas" | "editar" = "mas";
   let textoDelBoton = "Registrar servicio";
@@ -158,22 +168,27 @@ type ListaDelCatalogoProps = {
   onResultado: (resultado: ResultadoDeOperacion) => void;
 };
 
-// Lista de servicios con búsqueda y filtro por estado
+// Muestra los servicios del catálogo y permite buscarlos, filtrarlos, agregarlos o modificarlos.
+// También indica cuántas solicitudes tiene cada servicio y cuántos colaboradores lo ofrecen.
 function ListaDelCatalogo({ onAgregar, onEditar, onResultado }: ListaDelCatalogoProps) {
   const { servicios, cambiarEstadoDelServicio } = useCatalogo();
   const { solicitudes } = useSolicitudes();
   const { trabajadores } = useTrabajadores();
+  // Guarda el servicio seleccionado para mostrar la confirmación antes de cambiar su estado.
   const [servicioPorCambiar, setServicioPorCambiar] = useState<ServicioDelCatalogo | null>(null);
 
+  // Cuenta las solicitudes relacionadas con el servicio.
   function contarSolicitudes(idDelServicio: string) {
     return solicitudes.filter((solicitud) => solicitud.idDelServicio === idDelServicio).length;
   }
 
+  // Cuenta los colaboradores que ofrecen este servicio.
   function contarEspecialistas(idDelServicio: string) {
     return trabajadores.filter((trabajador) => trabajador.especialidades.includes(idDelServicio)).length;
   }
 
-  // Texto de confirmación al activar o desactivar
+  // Prepara los detalles que se mostrarán antes de activar o desactivar el servicio.
+  // Si ningún colaborador lo ofrece, también muestra una advertencia.
   function describirCambioDeEstado(servicio: ServicioDelCatalogo): string[] {
     const lineas = [`Estado: ${servicio.estado} → ${servicio.estado === "Activo" ? "Inactivo" : "Activo"}`];
     if (servicio.estado === "Activo") {
@@ -187,18 +202,22 @@ function ListaDelCatalogo({ onAgregar, onEditar, onResultado }: ListaDelCatalogo
     }
     return lineas;
   }
+  // Guarda el texto de búsqueda y el estado seleccionado en los filtros.
   const [busqueda, setBusqueda] = useState("");
   const [filtroDeEstado, setFiltroDeEstado] = useState("Todos");
 
   const textoBuscado = normalizarTexto(busqueda);
+  // Filtra los servicios por estado y por coincidencias en su ID, nombre o descripción.
   const serviciosVisibles = servicios.filter((servicio) => {
     const coincideConElEstado = filtroDeEstado === "Todos" || servicio.estado === filtroDeEstado;
     const textoDelServicio = normalizarTexto(`${servicio.id} ${servicio.nombre} ${servicio.descripcion}`);
     return coincideConElEstado && textoDelServicio.includes(textoBuscado);
   });
+  // Cuenta los servicios que siguen disponibles en la app.
   const serviciosDisponibles = servicios.filter((servicio) => servicio.estado === "Activo").length;
   const hayFiltrosActivos = busqueda.trim() !== "" || filtroDeEstado !== "Todos";
 
+  // Deja la búsqueda vacía y vuelve a mostrar todos los estados.
   function restablecerFiltros() {
     setBusqueda("");
     setFiltroDeEstado("Todos");
@@ -294,6 +313,7 @@ function ListaDelCatalogo({ onAgregar, onEditar, onResultado }: ListaDelCatalogo
           lineasDeCambios={describirCambioDeEstado(servicioPorCambiar)}
           etiquetaDeConfirmar={servicioPorCambiar.estado === "Activo" ? "Sí, desactivar" : "Sí, activar"}
           onConfirmar={() => {
+            // Aplica el cambio de estado, muestra el resultado y cierra la ventana de confirmación.
             onResultado(cambiarEstadoDelServicio(servicioPorCambiar.id));
             setServicioPorCambiar(null);
           }}
@@ -304,17 +324,20 @@ function ListaDelCatalogo({ onAgregar, onEditar, onResultado }: ListaDelCatalogo
   );
 }
 
-// Catálogo: lista y formulario
+// Página principal del catálogo, desde donde se pueden consultar, crear y editar servicios.
+// Los servicios activos también son los que aparecen disponibles en la app móvil.
 export function CatalogoPage() {
   const { servicios } = useCatalogo();
+  // Controla si se muestra la lista o alguno de los formularios.
   const [vista, setVista] = useState<VistaDelCatalogo>({ tipo: "lista" });
+  // Guarda el resultado de la última operación para mostrarlo en un aviso temporal.
   const [aviso, setAviso] = useState<ResultadoDeOperacion | null>(null);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [vista]);
 
-  // Muestra el aviso y vuelve a la lista si salió bien
+  // Muestra el resultado y regresa a la lista cuando el guardado se completa correctamente.
   function terminarFormulario(resultado: ResultadoDeOperacion) {
     setAviso(resultado);
     if (resultado.exito) {
@@ -322,6 +345,7 @@ export function CatalogoPage() {
     }
   }
 
+  // Según la vista seleccionada, muestra la lista, el formulario nuevo o el de edición.
   let contenido = <ListaDelCatalogo onAgregar={() => setVista({ tipo: "nuevo" })} onEditar={(idDelServicio) => setVista({ tipo: "editar", idDelServicio })} onResultado={setAviso} />;
   if (vista.tipo === "nuevo") {
     contenido = <FormularioDeServicio servicioEditado={null} onCancelar={() => setVista({ tipo: "lista" })} onTerminar={terminarFormulario} />;
@@ -338,6 +362,7 @@ export function CatalogoPage() {
       <div key={vista.tipo} className="fade">
         {contenido}
       </div>
+      {/* Muestra el resultado de la última acción realizada en el catálogo. */}
       {aviso && <AvisoTemporal aviso={aviso} onTerminar={() => setAviso(null)} />}
     </>
   );
