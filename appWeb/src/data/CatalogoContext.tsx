@@ -3,24 +3,30 @@ import { crearSiguienteId, normalizarTexto } from "../utils/formato";
 import { SERVICIOS_DE_DEMOSTRACION } from "./catalogoDemo";
 import type { DatosDeServicio, ResultadoDeOperacion, ServicioDelCatalogo } from "./tipos";
 
+// Lo que se está escribiendo en el formulario. El precio es texto porque así lo entrega la caja de texto; se convierte a número al guardar.
 export type BorradorDeServicio = {
   nombre: string;
   descripcion: string;
   precioBase: string;
 };
 
+// Un mensaje de error por campo del formulario.
 export type ErroresDelServicio = Partial<Record<keyof BorradorDeServicio, string>>;
 
+// Formulario en blanco para "Agregar servicio".
 export const BORRADOR_DE_SERVICIO_VACIO: BorradorDeServicio = {
   nombre: "",
   descripcion: "",
   precioBase: "",
 };
 
+// Límites que acepta el formulario: nombre, descripción y precio.
 const LONGITUD_MAXIMA_DEL_NOMBRE = 60;
 const LONGITUD_MAXIMA_DE_LA_DESCRIPCION = 240;
 const MONTO_MAXIMO = 100000;
+// Ojo: en CatalogoPage las cajas de texto dejan escribir hasta 80 caracteres (nombre) y 300 (descripción), pero los límites que de verdad se validan son los de arriba (60 y 240). El back debe usar estos.
 
+// Convierte un servicio existente en el formulario de "Editar" (el precio pasa a texto).
 export function crearBorradorDesdeServicio(servicio: ServicioDelCatalogo): BorradorDeServicio {
   return {
     nombre: servicio.nombre,
@@ -29,6 +35,7 @@ export function crearBorradorDesdeServicio(servicio: ServicioDelCatalogo): Borra
   };
 }
 
+// Revisa el precio: número, mayor a 0, máximo $100,000 y hasta 2 decimales. Devuelve el error o undefined si está bien.
 function validarMonto(texto: string): string | undefined {
   const textoLimpio = texto.trim();
   const monto = Number(textoLimpio);
@@ -50,7 +57,7 @@ function validarMonto(texto: string): string | undefined {
   return undefined;
 }
 
-// Valida el formulario del servicio (nombre sin repetir, precio válido)
+// Revisa el formulario del servicio. El nombre no puede repetirse (ni con otras mayúsculas o acentos)
 export function validarServicio(borrador: BorradorDeServicio, servicios: ServicioDelCatalogo[], idDelServicioEditado: string | null): ErroresDelServicio {
   const errores: ErroresDelServicio = {};
   const nombre = borrador.nombre.trim();
@@ -81,6 +88,7 @@ export function validarServicio(borrador: BorradorDeServicio, servicios: Servici
   return errores;
 }
 
+// Limpia espacios y convierte el precio a número para guardar.
 function convertirBorradorEnDatos(borrador: BorradorDeServicio): DatosDeServicio {
   return {
     nombre: borrador.nombre.replace(/\s+/g, " ").trim(),
@@ -89,6 +97,7 @@ function convertirBorradorEnDatos(borrador: BorradorDeServicio): DatosDeServicio
   };
 }
 
+// Lo que ofrece este almacén: la lista de servicios y las 3 acciones para gestionarlos.
 type ValorDelContextoDelCatalogo = {
   servicios: ServicioDelCatalogo[];
   registrarServicio: (borrador: BorradorDeServicio) => ResultadoDeOperacion;
@@ -98,13 +107,16 @@ type ValorDelContextoDelCatalogo = {
 
 const CatalogoContext = createContext<ValorDelContextoDelCatalogo | null>(null);
 
+// Respuesta lista para cuando el formulario tiene errores.
 const MENSAJE_DE_DATOS_INVALIDOS: ResultadoDeOperacion = { exito: false, mensaje: "Revisa los datos marcados antes de guardar." };
 
-// Guarda el catálogo de servicios
+// Guarda el catálogo de servicios, que es lo que el cliente ve en la app móvil (solo los Activos).
+// Un servicio nunca se borra, solo se desactiva, porque las solicitudes que ya existen lo siguen usando.
+// Editar el precio de un servicio no debe cambiar el de las solicitudes que ya existen
 export function CatalogoProvider({ children }: { children: ReactNode }) {
   const [servicios, setServicios] = useState<ServicioDelCatalogo[]>(SERVICIOS_DE_DEMOSTRACION);
 
-  // Alta de un servicio nuevo
+  // valida, crea el id siguiente (C-07...) y lo deja Activo.
   function registrarServicio(borrador: BorradorDeServicio): ResultadoDeOperacion {
     if (Object.keys(validarServicio(borrador, servicios, null)).length > 0) {
       return MENSAJE_DE_DATOS_INVALIDOS;
@@ -122,7 +134,7 @@ export function CatalogoProvider({ children }: { children: ReactNode }) {
     return { exito: true, mensaje: `«${nuevoServicio.nombre}» se registró en el catálogo.` };
   }
 
-  // Edita un servicio existente
+  // cambia nombre, descripción o precio. Las solicitudes que ya existen conservan su precio y condiciones.
   function editarServicio(idDelServicio: string, borrador: BorradorDeServicio): ResultadoDeOperacion {
     const servicioOriginal = servicios.find((servicio) => servicio.id === idDelServicio);
     if (!servicioOriginal) {
@@ -136,7 +148,7 @@ export function CatalogoProvider({ children }: { children: ReactNode }) {
     return { exito: true, mensaje: "Cambios aplicados al catálogo. Las solicitudes existentes conservan sus condiciones." };
   }
 
-  // Activa o desactiva un servicio
+  // ACTIVAR / DESACTIVAR: un servicio inactivo deja de mostrarse en la app, pero las solicitudes que ya lo usan no cambian.
   function cambiarEstadoDelServicio(idDelServicio: string): ResultadoDeOperacion {
     const servicio = servicios.find((servicioBuscado) => servicioBuscado.id === idDelServicio);
     if (!servicio) {
@@ -153,6 +165,7 @@ export function CatalogoProvider({ children }: { children: ReactNode }) {
   return <CatalogoContext.Provider value={{ servicios, registrarServicio, editarServicio, cambiarEstadoDelServicio }}>{children}</CatalogoContext.Provider>;
 }
 
+// Hook para usar el catálogo en cualquier pantalla.
 export function useCatalogo(): ValorDelContextoDelCatalogo {
   const valor = useContext(CatalogoContext);
   if (!valor) {

@@ -1,15 +1,22 @@
-// Respuesta de cada acción: si salió bien y el mensaje a mostrar
+// Aquí se define la forma de todo lo que maneja la web. Son el "contrato" que el back debe respetar al responder.
+// Respuesta estándar de toda acción (guardar, confirmar, cancelar, aprobar...).
+// exito: salió bien (true) o no (false). mensaje: el texto que verá el usuario.
+// Ese texto se muestra en el AvisoTemporal (el cartelito de abajo que se quita solo).
 export type ResultadoDeOperacion = {
   exito: boolean;
   mensaje: string;
 };
 
+// Estado de la INE de un cliente. 
+
 export type EstadoDeVerificacion = "Pendiente" | "Verificada" | "Rechazada";
 
+// Lado de la INE. 
 export type TipoDeDocumentoDeCliente = "INE · Frente" | "INE · Reverso";
 
 export type FormatoDeArchivo = "pdf" | "imagen";
 
+// Archivo subido. esDeDemostracion es true cuando es un archivo de ejemplo.
 export type ArchivoDeDocumento = {
   url: string;
   formato: FormatoDeArchivo;
@@ -23,13 +30,15 @@ export type DocumentoDeCliente = {
   fechaDeEnvio: string | null;
 };
 
+// Resultado de la revisión del administrador sobre la INE.
 export type VerificacionDeIne = {
   estado: EstadoDeVerificacion;
   fechaDeRevision: string | null;
   motivoDeRechazo: string;
 };
 
-// Cliente y su verificación de INE
+// Cliente y su verificación de INE. 
+// Los clientes se registran desde la app móvil; aquí el administrador solo los consulta y revisa su INE.
 export type Cliente = {
   id: string;
   nombre: string;
@@ -40,14 +49,17 @@ export type Cliente = {
   verificacion: VerificacionDeIne;
 };
 
-// Estado interno de la solicitud
+// Estado interno de la solicitud. Avanza: Pendiente - Confirmado - Realizado; en cualquier momento antes de finalizar puede pasar a Cancelado.
 export type EstadoDeSolicitud = "Pendiente" | "Confirmado" | "Realizado" | "Cancelado";
 
-// Etapa que ve el administrador (se calcula del estado)
+// Etapa que ve el administrador. No se guarda: se calcula con obtenerEtapa() usando el estado y si ya hay colaborador.
+// Pendiente sin colaborador = "Solicitud enviada"; Pendiente con colaborador = "Asignando colaborador".
 export type EtapaDeSolicitud = "Solicitud enviada" | "Asignando colaborador" | "Servicio confirmado" | "Servicio finalizado" | "Cancelada";
 
+// Quién eligió al colaborador: el Cliente (manual) o el sistema (Automática). 
 export type ModoDeEleccionDelColaborador = "Cliente" | "Automática";
 
+// Foto de evidencia del servicio. 
 export type EvidenciaFotografica = {
   id: string;
   nombreDelArchivo: string;
@@ -57,19 +69,21 @@ export type EvidenciaFotografica = {
   fechaDeIncorporacion: string;
 };
 
+// Reseña del cliente al terminar el servicio. 
 export type Calificacion = {
   puntuacion: number;
   comentario: string;
   fecha: string;
 };
 
+// Quién canceló y por qué. 
 export type Cancelacion = {
   canceladaPor: "Cliente" | "Administración";
   motivo: string;
   fecha: string;
 };
 
-// Solicitud de servicio: es el dato central del flujo
+// Solicitud de servicio: es el dato central de todo el flujo.
 export type Solicitud = {
   id: string;
   idDelCliente: string;
@@ -89,6 +103,7 @@ export type Solicitud = {
   cancelacion: Cancelacion | null;
 };
 
+// Días y horas en que trabaja un colaborador. dias: 0 = domingo ... 6 = sábado.
 export type HorarioDeTrabajo = {
   dias: number[];
   horaDeInicio: string;
@@ -97,7 +112,9 @@ export type HorarioDeTrabajo = {
 
 export type EstadoDeTrabajador = "Activo" | "Inactivo";
 
-// Colaborador que atiende los servicios
+// Colaborador que atiende los servicios.
+// especialidades guarda los ids de servicios del catálogo.
+// documentosEntregados guarda solo el nombre de los documentos que ya entregó ("Identificación oficial", ...). 
 export type Trabajador = {
   id: string;
   nombre: string;
@@ -110,11 +127,12 @@ export type Trabajador = {
   estado: EstadoDeTrabajador;
 };
 
+// Los datos que se escriben en el formulario de colaborador (todo menos el id y el estado, que los pone el sistema).
 export type DatosDeTrabajador = Omit<Trabajador, "id" | "estado">;
 
 export type EstadoDeServicio = "Activo" | "Inactivo";
 
-// Servicio que ofrece el negocio
+// Servicio que ofrece el negocio. 
 export type ServicioDelCatalogo = {
   id: string;
   nombre: string;
@@ -123,6 +141,7 @@ export type ServicioDelCatalogo = {
   estado: EstadoDeServicio;
 };
 
+// Los datos que se escriben en el formulario de servicio (sin id ni estado).
 export type DatosDeServicio = Omit<ServicioDelCatalogo, "id" | "estado">;
 
 export type FiltroDeEtapa = "todas" | "activas" | EtapaDeSolicitud;
@@ -130,7 +149,8 @@ export type FiltroDeFechaDelTrabajo = "todas" | "hoy" | "manana" | "despues" | "
 export type FiltroDeFechaDeSolicitud = "todas" | "hoy" | "7dias";
 export type FiltroDeEleccion = "todas" | ModoDeEleccionDelColaborador;
 
-// Filtros de la lista de solicitudes
+// Filtros de la pantalla Solicitudes. Se aplican en el navegador sobre la lista completa (ver filtrarSolicitudes).
+// busqueda: texto libre; etapa: seguimiento; fechaDelTrabajo: cuándo es el servicio; fechaDeSolicitud: cuándo se pidió; eleccion: manual o automática.
 export type FiltrosDeSolicitudes = {
   busqueda: string;
   etapa: FiltroDeEtapa;
@@ -141,6 +161,9 @@ export type FiltrosDeSolicitudes = {
 
 export type FiltroDeVerificacion = "Todos" | EstadoDeVerificacion;
 
+// Datos extra para abrir una pantalla del panel ya preparada.
+// abrir Solicitudes con filtros puestos, abrir el detalle de una solicitud,
+// abrir el detalle de un cliente (idDelCliente) o Clientes filtrado por INE.
 export type AperturaDelPanel = {
   filtrosDeSolicitudes?: FiltrosDeSolicitudes;
   idDeSolicitud?: string | null;
@@ -148,12 +171,14 @@ export type AperturaDelPanel = {
   filtroDeVerificacion?: FiltroDeVerificacion;
 };
 
+// Pantallas del panel de administración (cada una es un botón del menú lateral; "perfil" se abre desde la foto).
 export type VistaDelPanel = "inicio" | "perfil" | "solicitudes" | "trabajadores" | "catalogo" | "clientes" | "resenas";
 
-// Función para cambiar de vista dentro del panel
+// Función para cambiar de pantalla dentro del panel. La define DashboardPage y la reciben las demás pantallas como onNavegar.
 export type Navegar = (vista: VistaDelPanel, apertura?: AperturaDelPanel) => void;
 
-// Datos del usuario que inició sesión
+// Datos del usuario que inició sesión. Es lo que devuelve el login.
+// Trae id, nombre, correo y rol.
 export type Sesion = {
   id?: number;
   nombre: string;

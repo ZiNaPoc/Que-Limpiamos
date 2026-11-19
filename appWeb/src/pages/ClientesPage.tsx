@@ -9,12 +9,13 @@ import { Icono } from "../components/comunes/Icono";
 import { InsigniaDeDatosDeDemostracion, InsigniaDeEstado } from "../components/comunes/Insignias";
 import { TarjetaDeIndicador } from "../components/comunes/TarjetaDeIndicador";
 
+// Estilo del botón de filtro: resaltado si es el elegido.
 function claseDelFiltro(estaActivo: boolean) {
   const claseBase = "flex cursor-pointer items-center gap-2 rounded-full px-4 py-2 text-xs font-bold transition duration-300";
   return estaActivo ? `${claseBase} bg-navy text-white` : `${claseBase} bg-white text-storm hover:bg-sky/50`;
 }
 
-// Tarjeta de un lado de la INE (frente o reverso)
+// Tarjeta de un lado de la INE (frente o reverso): muestra la imagen, un ícono si es PDF, o "Sin archivo". Al hacer clic abre la ventana de revisión.
 function TarjetaDeLadoDeIne({ documento, onAbrir }: { documento: DocumentoDeCliente; onAbrir: () => void }) {
   return (
     <div className="overflow-hidden rounded-2xl bg-beige">
@@ -38,13 +39,15 @@ function TarjetaDeLadoDeIne({ documento, onAbrir }: { documento: DocumentoDeClie
   );
 }
 
+// Datos y botones que recibe el detalle: el cliente, volver y abrir la revisión de INE.
 type DetalleDelClienteProps = {
   cliente: Cliente;
   onVolver: () => void;
   onRevisarIne: () => void;
 };
 
-// Datos del cliente y estado de su INE
+// Detalle de un cliente: datos personales (se actualizan desde "Mi perfil" en la app móvil) y el estado de su INE.
+// Si la INE fue aprobada o rechazada, lo explica (con el motivo del rechazo). El botón abre la ventana de revisión.
 function DetalleDelCliente({ cliente, onVolver, onRevisarIne }: DetalleDelClienteProps) {
   const { verificacion } = cliente;
   const datosPersonales = [
@@ -114,20 +117,25 @@ function DetalleDelCliente({ cliente, onVolver, onRevisarIne }: DetalleDelClient
   );
 }
 
+// Datos que recibe la lista: filtro inicial y qué hacer al abrir un cliente o revisar su INE.
 type ListaDeClientesProps = {
   filtroInicial: FiltroDeVerificacion;
   onAbrirCliente: (idDelCliente: string) => void;
   onRevisarIne: (idDelCliente: string) => void;
 };
 
-// Lista con búsqueda y filtro por verificación
+// Lista de clientes con búsqueda y filtro por estado de la INE (por validar, aprobada, rechazada o todos).
+// Se necsita a usuarios con rol cliente, con su estado de verificación y los documentos (frente y reverso) de su INE.
+// Va en el orden de primero las INE pendientes (las que llevan más tiempo esperando, arriba) y luego el resto (los más recientes primero).
 function ListaDeClientes({ filtroInicial, onAbrirCliente, onRevisarIne }: ListaDeClientesProps) {
   const { clientes } = useClientes();
   const [busqueda, setBusqueda] = useState("");
   const [filtro, setFiltro] = useState<FiltroDeVerificacion>(filtroInicial);
+  // Cuántos clientes hay en cada estado de INE.
   const conteo = contarClientesPorVerificacion(clientes);
 
   const textoBuscado = normalizarTexto(busqueda);
+  // Clientes que cumplen el filtro y la búsqueda (por id, nombre, correo o teléfono).
   const clientesVisibles = clientes
     .filter((cliente) => {
       const coincideConElFiltro = filtro === "Todos" || cliente.verificacion.estado === filtro;
@@ -143,6 +151,7 @@ function ListaDeClientes({ filtroInicial, onAbrirCliente, onRevisarIne }: ListaD
       return pendienteA === 0 ? diferencia : -diferencia;
     });
 
+     // Botones de filtro con el número de clientes de cada estado. El de pendientes se resalta si hay alguno.
   const opcionesDeFiltro: { valor: FiltroDeVerificacion; etiqueta: string; cantidad: number }[] = [
     ...SECCIONES_DE_VERIFICACION.map(({ estado, etiqueta }) => ({ valor: estado as FiltroDeVerificacion, etiqueta: `INE ${etiqueta.toLowerCase()}`, cantidad: conteo[estado] })),
     { valor: "Todos", etiqueta: "Todos", cantidad: clientes.length },
@@ -266,12 +275,15 @@ function ListaDeClientes({ filtroInicial, onAbrirCliente, onRevisarIne }: ListaD
 }
 
 // Clientes: lista, detalle y revisión de INE
+//lista - "Ver detalles" abre al cliente, o "Revisar INE" abre directo la ventana de revisión - ahí se aprueba o se rechaza - el resultado sale en el aviso temporal.
+// Al aprobar o rechazar en la ventana de revisión, la lista y el detalle se actualizan solos porque leen del mismo almacén.
 export function ClientesPage({ apertura }: { apertura: AperturaDelPanel }) {
   const { clientes } = useClientes();
-  // Cliente cuyo detalle está abierto
+  // Cliente cuyo detalle está abierto (null = se ve la lista).
   const [idDelClienteAbierto, setIdDelClienteAbierto] = useState<string | null>(apertura.idDelCliente ?? null);
-  // Cliente cuya INE se está revisando
+  // Cliente cuya INE se está revisando (null = ventana cerrada).
   const [idDelClienteEnRevision, setIdDelClienteEnRevision] = useState<string | null>(null);
+  // Resultado de la última aprobación o rechazo, para el aviso temporal.
   const [aviso, setAviso] = useState<ResultadoDeOperacion | null>(null);
 
   useEffect(() => {
@@ -286,7 +298,7 @@ export function ClientesPage({ apertura }: { apertura: AperturaDelPanel }) {
         {clienteAbierto && <DetalleDelCliente cliente={clienteAbierto} onVolver={() => setIdDelClienteAbierto(null)} onRevisarIne={() => setIdDelClienteEnRevision(clienteAbierto.id)} />}
         {!clienteAbierto && <ListaDeClientes filtroInicial={apertura.filtroDeVerificacion ?? "Todos"} onAbrirCliente={setIdDelClienteAbierto} onRevisarIne={setIdDelClienteEnRevision} />}
       </div>
-      {/* Ventana de revisión de INE */}
+      {/* Ventana de revisión de INE. Al decidir devuelve el resultado, que se muestra en el aviso temporal. */}
       {idDelClienteEnRevision && <VentanaDeRevisionDeIne key={idDelClienteEnRevision} idDelCliente={idDelClienteEnRevision} onCerrar={() => setIdDelClienteEnRevision(null)} onResultado={setAviso} />}
       {aviso && <AvisoTemporal aviso={aviso} onTerminar={() => setAviso(null)} />}
     </>

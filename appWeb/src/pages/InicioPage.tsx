@@ -15,11 +15,12 @@ import { Icono } from "../components/comunes/Icono";
 import { InsigniaDeDatosDeDemostracion, InsigniaDeEstado } from "../components/comunes/Insignias";
 import { OlasDeFondo } from "../components/comunes/FormasOrganicas";
 
+// Cuántos elementos se muestran en cada bloque del Inicio (son vistas previas; el resto está en Solicitudes).
 const CANTIDAD_DE_SOLICITUDES_RECIENTES = 5;
 const CANTIDAD_DE_PENDIENTES_EN_VISTA_PREVIA = 3;
 const CANTIDAD_DE_SERVICIOS_EN_VISTA_PREVIA = 4;
 
-// Número que sube con animación
+// Hace que un número "suba" con animación hasta su valor final. Si la persona prefiere menos movimiento, lo muestra directo.
 function useContadorAnimado(valorFinal: number, duracionEnMilisegundos = 700) {
   const [valorMostrado, setValorMostrado] = useState(0);
   const ultimoValorMostrado = useRef(0);
@@ -54,7 +55,9 @@ type TarjetaPendientesDeAsignarProps = {
   onAbrirSolicitud: (idDeSolicitud: string) => void;
 };
 
-// Servicios de hoy que aún no tienen colaborador
+// Tarjeta "Por asignar hoy": solicitudes de hoy que todavía no tienen colaborador.
+// DATOS: la lista ya filtrada que le pasa InicioPage (obtenerPendientesDeAsignarHoy). Muestra el total y las primeras 3, con cliente y hora.
+// BOTONES: una solicitud abre su detalle; el botón principal abre Solicitudes con el filtro "Solicitud enviada + hoy".
 function TarjetaPendientesDeAsignarHoy({ solicitudes, onVerTodas, onAbrirSolicitud }: TarjetaPendientesDeAsignarProps) {
   const { clientes } = useClientes();
   const total = solicitudes.length;
@@ -109,7 +112,9 @@ type TarjetaServiciosEnProcesoProps = {
   onAbrirSolicitud: (idDeSolicitud: string) => void;
 };
 
-// Servicios de hoy ya confirmados
+// Tarjeta "Servicios confirmados para hoy": servicios de hoy ya confirmados que están por realizarse.
+// DATOS: la lista que le pasa InicioPage (obtenerServiciosEnProcesoHoy) y el colaborador de cada una. Muestra las primeras 4.
+// Desde aquí el administrador abre la solicitud y la marca como finalizada cuando termina el servicio.
 function TarjetaServiciosEnProceso({ solicitudes, onAbrirSolicitud }: TarjetaServiciosEnProcesoProps) {
   const { trabajadores } = useTrabajadores();
   const vistaPrevia = solicitudes.slice(0, CANTIDAD_DE_SERVICIOS_EN_VISTA_PREVIA);
@@ -146,7 +151,8 @@ function TarjetaServiciosEnProceso({ solicitudes, onAbrirSolicitud }: TarjetaSer
   );
 }
 
-// Resumen rápido de los colaboradores
+// Fila de colaboradores con su estado de este momento (Disponible, En servicio, Fuera de horario o Inactivo).
+// DATOS: lista de colaboradores + solicitudes + hora actual. El estado se calcula, no se guarda (calcularEstadoDelTrabajador).
 function FranjaDelEquipo({ onVerTrabajadores }: { onVerTrabajadores: () => void }) {
   const { trabajadores } = useTrabajadores();
   const { solicitudes } = useSolicitudes();
@@ -188,7 +194,8 @@ type ListaDeSolicitudesRecientesProps = {
   onVerTodas: () => void;
 };
 
-// Últimas solicitudes recibidas
+// Las últimas solicitudes que ingresaron, de la más nueva a la más vieja (sin importar para qué fecha son).
+// DATOS: la lista que le pasa InicioPage (5 solicitudes) y el nombre del cliente de cada una. Al hacer clic se abre el detalle.
 function ListaDeSolicitudesRecientes({ solicitudes, ahora, onAbrirSolicitud, onVerTodas }: ListaDeSolicitudesRecientesProps) {
   const { clientes } = useClientes();
   const claveDeHoy = obtenerClaveDeFecha(ahora);
@@ -239,6 +246,7 @@ function ListaDeSolicitudesRecientes({ solicitudes, ahora, onAbrirSolicitud, onV
   );
 }
 
+// Datos de una tarjeta de indicador: etiqueta, número, detalle, ícono, si pide atención (resalta con borde) y a dónde lleva.
 type IndicadorPrincipal = {
   etiqueta: string;
   valor: number;
@@ -249,7 +257,7 @@ type IndicadorPrincipal = {
   onAbrir: () => void;
 };
 
-// Tarjetas con los números clave
+// Las 3 tarjetas con los números clave. Cada una es un botón que abre su pantalla.
 function IndicadoresPrincipales({ indicadores }: { indicadores: IndicadorPrincipal[] }) {
   return (
     <section aria-labelledby="titulo-de-indicadores">
@@ -285,19 +293,30 @@ type InicioPageProps = {
   onNavegar: Navegar;
 };
 
-// Inicio: resumen del día y atajos a las demás pantallas
+// INICIO: resumen del día y atajos a las demás pantallas.
+// DATOS QUE LLENAN LA PANTALLA (hoy todo se calcula en el navegador con las listas completas):
+// - Saludo: el nombre de la sesión (el que devolvió el login).
+// - Indicadores: solicitudes activas por etapa, colaboradores activos y disponibles, e INE pendientes de validar.
+// - Disponibilidad de colaboradores, servicios de hoy (por asignar y confirmados) y las 5 solicitudes más recientes.
+// CONSULTAS QUE NECESITA: solicitudes con su cliente, servicio y colaborador; colaboradores con horario; y el conteo de clientes con INE pendiente.
+// ATAJOS: cada tarjeta usa onNavegar para abrir otra pantalla ya filtrada o con una solicitud abierta.
+// PARA EL BACK: no hace falta una consulta propia; con las listas de solicitudes, clientes y colaboradores se calcula todo aquí.
+// Si las listas llegan paginadas o son muy grandes, convendría una consulta de resumen con los conteos por etapa, los colaboradores disponibles, las INE pendientes, las solicitudes de hoy y las 5 más recientes.
 export function InicioPage({ sesion, onNavegar }: InicioPageProps) {
   const { solicitudes } = useSolicitudes();
   const { clientes } = useClientes();
   const { trabajadores } = useTrabajadores();
   const ahora = useAhora();
   const claveDeHoy = obtenerClaveDeFecha(ahora);
+  // Solicitudes en curso y cuántas hay en cada etapa (porEtapa).
   const solicitudesActivas = obtenerSolicitudesActivas(solicitudes);
   const porEtapa = (etapa: string) => solicitudesActivas.filter((solicitud) => obtenerEtapa(solicitud) === etapa).length;
+  // Colaboradores activos y cuántos están disponibles justo ahora.
   const colaboradoresActivos = trabajadores.filter((trabajador) => trabajador.estado === "Activo");
   const colaboradoresDisponibles = colaboradoresActivos.filter((trabajador) => calcularEstadoDelTrabajador(solicitudes, trabajador, ahora) === "Disponible").length;
+  // Clientes con la INE pendiente de revisión.
   const inePorValidar = contarClientesPorVerificacion(clientes).Pendiente;
-  // Números clave; cada uno abre su pantalla ya filtrada
+  // Números clave; cada uno abre su pantalla ya filtrada.
   const indicadores: IndicadorPrincipal[] = [
     {
       etiqueta: "Solicitudes activas",
@@ -327,11 +346,12 @@ export function InicioPage({ sesion, onNavegar }: InicioPageProps) {
       onAbrir: () => onNavegar("clientes", { filtroDeVerificacion: "Pendiente" }),
     },
   ];
+  // Listas de los bloques de "Resumen del día" y de "Solicitudes recientes".
   const pendientesDeAsignarHoy = obtenerPendientesDeAsignarHoy(solicitudes, claveDeHoy);
   const serviciosEnProcesoHoy = obtenerServiciosEnProcesoHoy(solicitudes, claveDeHoy);
   const solicitudesRecientes = obtenerSolicitudesRecientes(solicitudes, CANTIDAD_DE_SOLICITUDES_RECIENTES);
 
-  // Abre una solicitud directo en su detalle
+  // Abre una solicitud directo en su detalle (va a Solicitudes con el id).
   function abrirSolicitud(idDeSolicitud: string) {
     onNavegar("solicitudes", { idDeSolicitud });
   }

@@ -5,12 +5,13 @@ import { FormaOrganica, OlaDivisoria, TituloDeMarca } from "../components/comune
 import { Icono } from "../components/comunes/Icono";
 import { ImagenOIlustracion, type NombreDeIlustracion } from "../components/comunes/Ilustraciones";
 
+// Acciones que recibe la landing desde App: abrir el acceso e ir a una sección.
 type AccionesDeLaLanding = {
   onAcceder: () => void;
   onIrASeccion: (idDeSeccion: string) => void;
 };
 
-// Portada con los botones principales
+// Portada con los botones principales. Es la primera sección (id "inicio").
 function SeccionDePortada({ onAcceder, onIrASeccion }: AccionesDeLaLanding) {
   return (
     <section id="inicio" className="relative overflow-hidden px-5 pb-24 pt-32 sm:px-8 lg:pt-40">
@@ -52,6 +53,7 @@ function SeccionDePortada({ onAcceder, onIrASeccion }: AccionesDeLaLanding) {
   );
 }
 
+// Textos de la sección "¿Quiénes somos?".
 const DATOS_DE_LA_HISTORIA = [
   { titulo: "Nace de…", texto: "Un proyecto de la UT Cancún que aplica Design Thinking para entender a clientes y trabajadores de limpieza." },
   { titulo: "¿Qué resuelve?", texto: "Contratar limpieza sin depender de recomendaciones informales: servicios claros, colaboradores con horario y reputación visible." },
@@ -59,7 +61,7 @@ const DATOS_DE_LA_HISTORIA = [
   { titulo: "¿Para quiénes?", texto: "Clientes que buscan limpieza de confianza en Cancún y un administrador que gestiona colaboradores y solicitudes." },
 ];
 
-// Quiénes somos
+// Sección "¿Quiénes somos?".
 function SeccionQuienesSomos() {
   return (
     <section id="quienes-somos" className="relative px-5 py-24 sm:px-8">
@@ -94,6 +96,7 @@ function SeccionQuienesSomos() {
   );
 }
 
+// Textos de la sección "Objetivos"; ilustracion es el dibujo de respaldo si no hay imagen.
 const OBJETIVOS: { titulo: string; texto: string; ilustracion: NombreDeIlustracion }[] = [
   { titulo: "Interfaz intuitiva", texto: "Registro, búsqueda y contratación en pocos pasos.", ilustracion: "intuitiva" },
   { titulo: "Confianza", texto: "Verificación de identidad para clientes y colaboradores.", ilustracion: "confianza" },
@@ -101,7 +104,7 @@ const OBJETIVOS: { titulo: string; texto: string; ilustracion: NombreDeIlustraci
   { titulo: "Reputación", texto: "Calificaciones de los clientes para cada colaborador.", ilustracion: "reputacion" },
 ];
 
-// Objetivos del proyecto
+// Objetivos del proyecto.
 function SeccionObjetivos() {
   return (
     <section id="objetivos" className="relative bg-navy text-white">
@@ -128,7 +131,7 @@ function SeccionObjetivos() {
   );
 }
 
-// Botón de descarga; si aún no hay enlace, muestra un aviso
+// Botón de descarga de la app móvil. Si ENLACE_DE_DESCARGA está vacío, muestra un aviso provisional al hacer clic.
 function BotonDeDescarga() {
   const [mensajeProvisional, setMensajeProvisional] = useState("");
 
@@ -156,7 +159,7 @@ function BotonDeDescarga() {
   );
 }
 
-// Descarga de la app móvil
+// Sección "Descarga nuestra aplicación" (id "app"): explica la app móvil de clientes y esta app web de administración.
 function SeccionDescargaDeLaApp() {
   return (
     <section id="app" className="relative overflow-hidden bg-moon px-5 py-28 sm:px-8">
@@ -185,9 +188,10 @@ function SeccionDescargaDeLaApp() {
   );
 }
 
+// Ilustraciones que se turnan en la sección de acceso.
 const ILUSTRACIONES_DE_ROTACION: NombreDeIlustracion[] = ["casa", "app"];
 
-// Invitación a entrar al panel
+// Invitación a entrar al panel. Las ilustraciones giran cada 5 segundos, salvo que la persona prefiera menos movimiento.
 function SeccionAcceso({ onAcceder }: { onAcceder: () => void }) {
   const [indiceDeLaImagenVisible, setIndiceDeLaImagenVisible] = useState(0);
   const [cantidadDeGiros, setCantidadDeGiros] = useState(0);
@@ -230,7 +234,9 @@ function SeccionAcceso({ onAcceder }: { onAcceder: () => void }) {
   );
 }
 
-// Página pública: las secciones van en el orden del menú
+// LANDING (página pública): no consulta datos, todo es texto fijo.
+// Las secciones van en el mismo orden del menú: portada, quiénes somos, objetivos, descarga de la app y acceso.
+// Los botones "Acceder" llaman a onAcceder (App decide si va al login o al panel).
 export function LandingPage({ onAcceder, onIrASeccion }: AccionesDeLaLanding) {
   return (
     <main>

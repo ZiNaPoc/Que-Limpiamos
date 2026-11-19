@@ -7,7 +7,6 @@ import { SolicitudesProvider } from "./data/SolicitudesContext";
 import { TrabajadoresProvider } from "./data/TrabajadoresContext";
 import "./index.css";
 
-// Arranque de la app: los datos se comparten con estos proveedores (contextos)
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ClientesProvider>

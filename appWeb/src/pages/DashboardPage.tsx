@@ -11,9 +11,10 @@ import { ResenasPage } from "./ResenasPage";
 import { SolicitudesPage } from "./SolicitudesPage";
 import { TrabajadoresPage } from "./TrabajadoresPage";
 
+// "Escritorio" = pantalla de al menos 1024 px y con ratón. Ahí el menú es una barra delgada que se expande; en celular o tableta es un cajón que se abre con el botón.
 const CONSULTA_DE_PANTALLA_DE_ESCRITORIO = "(min-width: 1024px) and (hover: hover)";
 
-// Detecta si la pantalla es grande o chica para adaptar el menú
+// Detecta si la pantalla es de escritorio o no y se actualiza sola si cambia (por ejemplo, al girar la tableta).
 function useMenuLateralCompacto() {
   const [esCompacto, setEsCompacto] = useState(() => window.matchMedia(CONSULTA_DE_PANTALLA_DE_ESCRITORIO).matches);
   useEffect(() => {
@@ -27,6 +28,7 @@ function useMenuLateralCompacto() {
   return esCompacto;
 }
 
+// Apertura vacía: abrir una pantalla sin filtros ni registros abiertos.
 const APERTURA_PREDETERMINADA: AperturaDelPanel = {};
 
 type DashboardPageProps = {
@@ -35,27 +37,38 @@ type DashboardPageProps = {
   onIrAQuienesSomos: () => void;
 };
 
-// Panel del administrador: menú lateral y la vista elegida
+// Marco con menú lateral y la pantalla elegida. Solo se llega aquí con sesión iniciada.
+// El estado vistaActual dice qué pantalla se ve (no hay URLs por pantalla).
+// Inicio - resumen del día y atajos / Solicitudes - lista y detalle, aquí se avanza el flujo / Clientes - revisar INE /
+// Colaboradores - alta, edición y reputación / Catálogo - servicios que ve el cliente / Reseñas - calificaciones / Perfil - datos de la sesión.
+// Todas las pantallas cambian de vista con navegarA (la reciben como onNavegar).
+// aquí es donde se cargan las listas al abrir: solicitudes, clientes, colaboradores y servicios.
+// Si alguna petición responde 401, la cookie venció: hay que llamar a onCerrarSesion para volver al login.
 export function DashboardPage({ sesion, onCerrarSesion, onIrAQuienesSomos }: DashboardPageProps) {
   const menuLateralEsCompacto = useMenuLateralCompacto();
-  // Vista abierta en el panel
+  // Pantalla abierta en el panel. Empieza en Inicio.
   const [vistaActual, setVistaActual] = useState<VistaDelPanel>("inicio");
+  // En celular, si el menú (cajón) está abierto o cerrado.
   const [cajonAbierto, setCajonAbierto] = useState(false);
-  // Datos con los que se abre una vista (filtros o un id)
+  // Datos extra con los que se abrió la pantalla (filtros ya puestos o el id de algo que debe abrirse).
+  // Ejemplo: desde Inicio, "Revisar INE" abre Clientes ya filtrado por INE pendiente.
   const [apertura, setApertura] = useState<AperturaDelPanel>(APERTURA_PREDETERMINADA);
+  // Cuenta cada vez que se navega, aunque sea a la misma pantalla. Sirve para reiniciar la pantalla y subir al inicio.
   const [cantidadDeNavegaciones, setCantidadDeNavegaciones] = useState(0);
 
   useEffect(() => {
+    // Cada vez que se cambia de pantalla, la página sube al inicio.
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [vistaActual, cantidadDeNavegaciones]);
 
   useEffect(() => {
+    // Si la pantalla pasa a escritorio, el cajón se cierra solo (ya no hace falta).
     if (menuLateralEsCompacto) {
       setCajonAbierto(false);
     }
   }, [menuLateralEsCompacto]);
 
-  // Cambia de vista; todas las pantallas usan esta función
+  // Cambia de pantalla. Guarda la nueva vista y su apertura, cuenta la navegación y cierra el cajón del menú.
   function navegarA(vista: VistaDelPanel, aperturaNueva: AperturaDelPanel = APERTURA_PREDETERMINADA) {
     setVistaActual(vista);
     setApertura(aperturaNueva);
@@ -63,7 +76,7 @@ export function DashboardPage({ sesion, onCerrarSesion, onIrAQuienesSomos }: Das
     setCajonAbierto(false);
   }
 
-  // Elige qué pantalla mostrar
+  // Elige qué pantalla dibujar según vistaActual y le pasa lo que necesita (sesión, apertura, onNavegar).
   function mostrarVistaActual() {
     if (vistaActual === "inicio") {
       return <InicioPage sesion={sesion} onNavegar={navegarA} />;
@@ -108,6 +121,7 @@ export function DashboardPage({ sesion, onCerrarSesion, onIrAQuienesSomos }: Das
             <Logotipo />
           </header>
         )}
+        {/* La key cambia en cada navegación: React reconstruye la pantalla, repite su animación y borra lo que tenía escrito (filtros, detalles abiertos). */}
         <div key={`${vistaActual}-${cantidadDeNavegaciones}`} className="rise mx-auto max-w-6xl">
           {mostrarVistaActual()}
         </div>

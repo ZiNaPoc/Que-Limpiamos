@@ -110,6 +110,7 @@ function FormularioDeServicio({ servicioEditado, onCancelar, onTerminar }: Formu
   }
 
   // Ajusta el título, el icono y el botón según se esté creando o editando un servicio.
+  // Textos que cambian si se crea o se edita.
   let titulo = "Nuevo servicio";
   let icono: "mas" | "editar" = "mas";
   let textoDelBoton = "Registrar servicio";
@@ -174,7 +175,7 @@ function ListaDelCatalogo({ onAgregar, onEditar, onResultado }: ListaDelCatalogo
   const { servicios, cambiarEstadoDelServicio } = useCatalogo();
   const { solicitudes } = useSolicitudes();
   const { trabajadores } = useTrabajadores();
-  // Guarda el servicio seleccionado para mostrar la confirmación antes de cambiar su estado.
+  // Servicio al que se le va a cambiar el estado- mientras tiene valor se muestra la ventana de confirmación.
   const [servicioPorCambiar, setServicioPorCambiar] = useState<ServicioDelCatalogo | null>(null);
 
   // Cuenta las solicitudes relacionadas con el servicio.
@@ -313,7 +314,7 @@ function ListaDelCatalogo({ onAgregar, onEditar, onResultado }: ListaDelCatalogo
           lineasDeCambios={describirCambioDeEstado(servicioPorCambiar)}
           etiquetaDeConfirmar={servicioPorCambiar.estado === "Activo" ? "Sí, desactivar" : "Sí, activar"}
           onConfirmar={() => {
-            // Aplica el cambio de estado, muestra el resultado y cierra la ventana de confirmación.
+            // Confirmado: cambia el estado, muestra el resultado en el aviso temporal y cierra la ventana
             onResultado(cambiarEstadoDelServicio(servicioPorCambiar.id));
             setServicioPorCambiar(null);
           }}

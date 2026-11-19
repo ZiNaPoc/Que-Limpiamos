@@ -5,7 +5,10 @@ import { FormaOrganica } from "../components/comunes/FormasOrganicas";
 import { Icono } from "../components/comunes/Icono";
 import { ImagenOIlustracion } from "../components/comunes/Ilustraciones";
 
+// Se escriben correo y contraseña - se envían al servidor - si son correctos, App guarda la sesión y abre el panel.
+
 export function LoginPage({ onAccesoExitoso }: { onAccesoExitoso: (sesion: Sesion) => void }) {
+  // Lo que se escribe en el formulario y el estado de la pantalla: mensaje de error, sacudida del formulario, ayuda de contraseña y ver/ocultar contraseña.
   const [correo, setCorreo] = useState("");
   const [contrasena, setContrasena] = useState("");
   const [mensajeDeError, setMensajeDeError] = useState("");
@@ -13,25 +16,25 @@ export function LoginPage({ onAccesoExitoso }: { onAccesoExitoso: (sesion: Sesio
   const [ayudaVisible, setAyudaVisible] = useState(false);
   const [contrasenaVisible, setContrasenaVisible] = useState(false);
 
-  // Muestra el error y sacude el formulario
+  // Muestra el error y sacude el formulario (la sacudida se apaga sola al terminar la animación).
   function mostrarErrorDeAcceso(mensaje: string) {
     setMensajeDeError(mensaje);
     setFormularioVibrando(true);
   }
 
-  // Valida los campos y envía el login al servidor
+  // Valida los campos y envía el login al servidor.
   async function handleEnvioDelFormulario(evento: React.SubmitEvent<HTMLFormElement> ) {
     evento.preventDefault();
     setMensajeDeError("");
 
-    // Campos vacíos: no se envía nada
+    // Campos vacíos: no se envía nada al servidor.
     if(!correo.trim() || !contrasena) {
       mostrarErrorDeAcceso("Completa tu correo y contraseña.");
       return;
     }
 
     try {
-      // Petición al servidor con correo y contraseña
+      // Petición al servidor con correo y contraseña. credentials: "include" permite que el navegador reciba y guarde la cookie de sesión.
       const respuesta = await fetch (
         `${import.meta.env.VITE_API_URL}/api/auth/admin/login`,
         {
@@ -47,14 +50,15 @@ export function LoginPage({ onAccesoExitoso }: { onAccesoExitoso: (sesion: Sesio
         }
       );
 
+      // Si el servidor responde algo que no es JSON, esta línea falla y se cae al catch con el mensaje genérico.
       const datos = await respuesta.json();
 
-      // Si el servidor rechaza el acceso, se muestra su mensaje
+      // Si el servidor rechaza el acceso (400, 401 o 403), se muestra el mensaje que mandó.
       if(!respuesta.ok) {
         throw new Error(datos.mensaje || 'No se puedo iniciar sesion.');
       }
 
-      // Acceso correcto: App guarda la sesión y abre el panel
+      // Acceso correcto: avisa a App con los datos del usuario; App guarda la sesión y abre el panel.
       onAccesoExitoso(datos.usuario);
     } catch(error) {
       mostrarErrorDeAcceso(
@@ -113,6 +117,8 @@ export function LoginPage({ onAccesoExitoso }: { onAccesoExitoso: (sesion: Sesio
               <button type="button" onClick={() => setAyudaVisible(!ayudaVisible)} aria-expanded={ayudaVisible} className="cursor-pointer text-xs font-semibold text-sky underline underline-offset-4 transition duration-300 hover:text-white">
                 Olvidé mi contraseña
               </button>
+              {/* Olvidé mi contraseña: por ahora solo muestra un texto de ayuda; no se envía nada al servidor. */}
+              {/* El texto de ayuda todavía habla de una «cuenta de prueba» que ya no existe; hay que cambiarlo cuando se decida cómo se recupera la contraseña del panel (si el back la ofrece, aquí se llamaría). */}
               {ayudaVisible && (
                 <p role="status" className="pop mt-3 text-xs leading-relaxed text-sky">
                   La recuperación se hará desde la app móvil cuando la cuenta esté conectada a la API. En esta demostración usa la cuenta de prueba.

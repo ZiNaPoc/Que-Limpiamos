@@ -4,19 +4,25 @@ import { horarioCubreLaFecha } from "./horarios";
 import { buscarTrabajador, describirTrabajador } from "../data/trabajadores";
 import type { EstadoDeSolicitud, EtapaDeSolicitud, HorarioDeTrabajo, ResultadoDeOperacion, Solicitud, Trabajador } from "../data/tipos";
 
-// Margen entre dos servicios del mismo colaborador
+// Aquí se decide qué se puede hacer y qué no. Las pantallas solo preguntan "¿se puede?" y muestran la respuesta.
+
+// Margen entre dos servicios del mismo colaborador (2 horas).
 const SEPARACION_MINIMA_ENTRE_SERVICIOS_EN_MINUTOS = 120;
-// Tiempo extra para confirmar después de la hora programada
+// Tiempo extra para confirmar después de la hora programada (1 hora). Pasado ese tiempo ya solo se puede cancelar.
 const TOLERANCIA_PARA_CONFIRMAR_EN_MINUTOS = 60;
+// Largo permitido del motivo de cancelación (10 a 300 letras).
 export const LONGITUD_MINIMA_DEL_MOTIVO = 10;
 export const LONGITUD_MAXIMA_DEL_MOTIVO = 300;
 
+// Una solicitud "activa" es la que todavía está en curso: Pendiente o Confirmado.
 const ESTADOS_ACTIVOS: EstadoDeSolicitud[] = ["Pendiente", "Confirmado"];
 
-// Etapas en orden, de la primera a la última
+// Etapas en orden, de la primera a la última.
 export const ETAPAS_DE_SOLICITUD: EtapaDeSolicitud[] = ["Solicitud enviada", "Asignando colaborador", "Servicio confirmado", "Servicio finalizado", "Cancelada"];
 
-// Calcula la etapa a partir del estado y si hay colaborador
+// Calcula la etapa que se muestra, a partir del estado y de si hay colaborador:
+// Cancelado - Cancelada; Realizado - Servicio finalizado; Confirmado - Servicio confirmado;
+// Pendiente con colaborador - Asignando colaborador; Pendiente sin colaborador - Solicitud enviada.
 export function obtenerEtapa(solicitud: Solicitud): EtapaDeSolicitud {
   if (solicitud.estado === "Cancelado") {
     return "Cancelada";
@@ -30,20 +36,22 @@ export function obtenerEtapa(solicitud: Solicitud): EtapaDeSolicitud {
   return solicitud.idDelTrabajador ? "Asignando colaborador" : "Solicitud enviada";
 }
 
-// Activa = Pendiente o Confirmado
+// Activa = Pendiente o Confirmado.
 export function estaActiva(solicitud: Solicitud): boolean {
   return ESTADOS_ACTIVOS.includes(solicitud.estado);
 }
 
+// Respuesta "sí se puede".
 function permitir(mensaje = ""): ResultadoDeOperacion {
   return { exito: true, mensaje };
 }
 
+// Respuesta "no se puede" con la razón, que se muestra al administrador.
 function rechazar(mensaje: string): ResultadoDeOperacion {
   return { exito: false, mensaje };
 }
 
-// Busca si el colaborador ya tiene otro servicio muy cerca de esa hora
+// Busca si el colaborador ya tiene otro servicio activo a menos de 2 horas de esa hora (ignora la solicitud que se está editando).
 function buscarSolicitudEnConflicto(solicitudes: Solicitud[], idDelTrabajador: string, fechaProgramada: string, idDeSolicitudIgnorada: string): Solicitud | undefined {
   const momentoBuscado = new Date(fechaProgramada).getTime();
   return solicitudes.find((solicitud) => {
@@ -57,7 +65,7 @@ function buscarSolicitudEnConflicto(solicitudes: Solicitud[], idDelTrabajador: s
   });
 }
 
-// Texto de ayuda según la etapa
+// Texto de ayuda que aparece junto al colaborador, según la etapa.
 export function describirEstadoDeLaAsignacion(solicitud: Solicitud): string {
   const etapa = obtenerEtapa(solicitud);
   if (etapa === "Cancelada") {
@@ -81,7 +89,7 @@ export function describirEstadoDeLaAsignacion(solicitud: Solicitud): string {
   return "Todavía no hay colaborador asignado.";
 }
 
-// Solo se cambia colaborador mientras esté Pendiente
+// ¿Se puede asignar o cambiar colaborador? Solo mientras la solicitud esté Pendiente. Confirmada, finalizada o cancelada ya no.
 export function evaluarCambioDeTrabajador(solicitud: Solicitud): ResultadoDeOperacion {
   if (solicitud.estado === "Cancelado") {
     return rechazar("La solicitud está cancelada; la asignación ya no se puede cambiar.");
@@ -95,6 +103,7 @@ export function evaluarCambioDeTrabajador(solicitud: Solicitud): ResultadoDeOper
   return permitir();
 }
 
+// Resumen de un colaborador para una solicitud: si está inactivo, ocupado, fuera de horario y si tiene la especialidad.
 export type DisponibilidadDelTrabajador = {
   trabajador: Trabajador;
   estaInactivo: boolean;
@@ -103,7 +112,7 @@ export type DisponibilidadDelTrabajador = {
   tieneLaEspecialidad: boolean;
 };
 
-// Revisa si el colaborador está inactivo, ocupado o fuera de horario
+// Revisa si el colaborador está inactivo, ocupado o fuera de horario para la fecha de esa solicitud.
 export function evaluarDisponibilidad(solicitudes: Solicitud[], trabajador: Trabajador, solicitud: Solicitud): DisponibilidadDelTrabajador {
   return {
     trabajador,
@@ -114,19 +123,19 @@ export function evaluarDisponibilidad(solicitudes: Solicitud[], trabajador: Trab
   };
 }
 
-// Puede atender si no tiene ninguna de esas tres razones
+// Puede atender si no tiene ninguna de esas tres razones. La especialidad no bloquea; solo se avisa.
 export function puedeAtender(disponibilidad: DisponibilidadDelTrabajador): boolean {
   return !disponibilidad.estaInactivo && !disponibilidad.estaOcupado && !disponibilidad.fueraDeHorario;
 }
 
-// Lista a los disponibles y con la especialidad primero
+// Lista para el selector de colaborador: primero los que pueden atender y, entre ellos, los que tienen la especialidad.
 export function listarTrabajadoresConDisponibilidad(solicitudes: Solicitud[], trabajadores: Trabajador[], solicitud: Solicitud): DisponibilidadDelTrabajador[] {
   return trabajadores
     .map((trabajador) => evaluarDisponibilidad(solicitudes, trabajador, solicitud))
     .sort((a, b) => Number(puedeAtender(b)) - Number(puedeAtender(a)) || Number(b.tieneLaEspecialidad) - Number(a.tieneLaEspecialidad));
 }
 
-// Todas las validaciones antes de asignar un colaborador
+// Todas las validaciones antes de asignar: permiso por estado, que sea otro colaborador, que exista, esté activo, trabaje a esa hora y no tenga otro servicio cerca.
 export function validarCambioDeTrabajador(solicitud: Solicitud, idDelTrabajadorNuevo: string | null, solicitudes: Solicitud[], trabajadores: Trabajador[]): ResultadoDeOperacion {
   const permiso = evaluarCambioDeTrabajador(solicitud);
   if (!permiso.exito) {
@@ -155,10 +164,12 @@ export function validarCambioDeTrabajador(solicitud: Solicitud, idDelTrabajadorN
   return permitir();
 }
 
+// Devuelve una copia de la solicitud con el nuevo colaborador (o null para dejarla sin asignar). No modifica la original.
 export function aplicarCambioDeTrabajador(solicitud: Solicitud, idDelTrabajadorNuevo: string | null): Solicitud {
   return { ...solicitud, idDelTrabajador: idDelTrabajadorNuevo };
 }
 
+// Líneas que se muestran en la ventana "¿Cambiar el colaborador?" para que el administrador revise antes de guardar.
 export function describirCambioDeTrabajador(solicitud: Solicitud, idDelTrabajadorNuevo: string | null, trabajadores: Trabajador[]): string[] {
   const lineas = [`Colaborador: ${describirTrabajador(trabajadores, solicitud.idDelTrabajador)} → ${describirTrabajador(trabajadores, idDelTrabajadorNuevo)}`];
   if (solicitud.modoDeEleccion === "Cliente" && solicitud.idDelTrabajador) {
@@ -172,7 +183,7 @@ export function describirCambioDeTrabajador(solicitud: Solicitud, idDelTrabajado
   return lineas;
 }
 
-// Para confirmar: debe haber colaborador activo y no pasar el límite de tiempo
+// ¿Se puede confirmar? Debe estar Pendiente, con colaborador activo y sin haber pasado 1 hora de la hora programada.
 export function evaluarConfirmacion(solicitud: Solicitud, trabajadores: Trabajador[], ahora: Date): ResultadoDeOperacion {
   if (solicitud.estado !== "Pendiente") {
     return rechazar("Solo se confirma una solicitud que está asignando colaborador.");
@@ -191,6 +202,7 @@ export function evaluarConfirmacion(solicitud: Solicitud, trabajadores: Trabajad
   return permitir();
 }
 
+// Líneas de la ventana "¿Confirmar el servicio?". Avisa que el cliente verá "Tu servicio fue confirmado" y que ya no se podrá cambiar al colaborador.
 export function describirConfirmacion(solicitud: Solicitud, trabajadores: Trabajador[]): string[] {
   const trabajador = buscarTrabajador(trabajadores, solicitud.idDelTrabajador);
   return [
@@ -201,7 +213,7 @@ export function describirConfirmacion(solicitud: Solicitud, trabajadores: Trabaj
   ];
 }
 
-// Para finalizar: debe estar confirmado y ya haber llegado la hora
+// ¿Se puede finalizar? Debe estar Confirmado y ya haber llegado la hora programada.
 export function evaluarFinalizacion(solicitud: Solicitud, ahora: Date): ResultadoDeOperacion {
   if (solicitud.estado !== "Confirmado") {
     return rechazar("Solo se finaliza un servicio confirmado.");
@@ -212,15 +224,17 @@ export function evaluarFinalizacion(solicitud: Solicitud, ahora: Date): Resultad
   return permitir();
 }
 
+// Líneas de la ventana "¿Marcar como finalizado?". Avisa que el cliente podrá calificar y que ya no se podrá cancelar.
 export function describirFinalizacion(): string[] {
   return ["Seguimiento: Servicio confirmado → Servicio finalizado", "La app le pedirá al cliente que califique el servicio («Califica tu servicio»).", "Una vez finalizado ya no se puede cancelar."];
 }
 
+// Devuelve una copia de la solicitud con el nuevo estado.
 export function aplicarEstado(solicitud: Solicitud, estado: EstadoDeSolicitud): Solicitud {
   return { ...solicitud, estado };
 }
 
-// No se cancela si ya está cancelada o finalizada
+// ¿Se puede cancelar? No si ya está cancelada ni si ya finalizó.
 export function evaluarCancelacion(solicitud: Solicitud): ResultadoDeOperacion {
   if (solicitud.estado === "Cancelado") {
     return rechazar("La solicitud ya está cancelada.");
@@ -231,7 +245,7 @@ export function evaluarCancelacion(solicitud: Solicitud): ResultadoDeOperacion {
   return permitir();
 }
 
-// El motivo debe tener un largo válido
+// Revisa el motivo (10 a 300 letras). Devuelve el error o undefined si está bien.
 export function validarMotivoDeCancelacion(motivo: string): string | undefined {
   const motivoLimpio = motivo.trim();
   if (motivoLimpio.length < LONGITUD_MINIMA_DEL_MOTIVO) {
@@ -243,7 +257,7 @@ export function validarMotivoDeCancelacion(motivo: string): string | undefined {
   return undefined;
 }
 
-// Marca la cancelación hecha por Administración
+// Devuelve una copia de la solicitud cancelada, anotando que la canceló la Administración, el motivo y la fecha.
 export function aplicarCancelacion(solicitud: Solicitud, motivo: string, ahora: Date): Solicitud {
   return {
     ...solicitud,
@@ -252,6 +266,7 @@ export function aplicarCancelacion(solicitud: Solicitud, motivo: string, ahora: 
   };
 }
 
+// Líneas de la ventana "¿Cancelar la solicitud?". Avisa que es definitivo y que el cliente tendrá que pedir el servicio de nuevo.
 export function describirCancelacion(solicitud: Solicitud, motivo: string, claveDeHoy: string): string[] {
   return [
     `Seguimiento: ${obtenerEtapa(solicitud)} → Cancelada`,
@@ -261,11 +276,12 @@ export function describirCancelacion(solicitud: Solicitud, motivo: string, clave
   ];
 }
 
-// Servicios activos que chocarían con un nuevo horario del colaborador
+// Servicios activos de un colaborador que quedarían fuera de un nuevo horario. Se usa al editarlo para no dejar servicios sin cubrir.
 export function buscarServiciosFueraDelHorario(solicitudes: Solicitud[], idDelTrabajador: string, horario: HorarioDeTrabajo): Solicitud[] {
   return solicitudes.filter((solicitud) => solicitud.idDelTrabajador === idDelTrabajador && estaActiva(solicitud) && !horarioCubreLaFecha(horario, solicitud.fechaProgramada));
 }
 
+// Servicios activos (pendientes o confirmados) de un colaborador. Se usa para no desactivarlo si tiene trabajo por atender.
 export function buscarServiciosActivosDelTrabajador(solicitudes: Solicitud[], idDelTrabajador: string): Solicitud[] {
   return solicitudes.filter((solicitud) => solicitud.idDelTrabajador === idDelTrabajador && estaActiva(solicitud));
 }

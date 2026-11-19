@@ -17,24 +17,27 @@ type SolicitudesPageProps = {
   onNavegar: Navegar;
 };
 
-// Lista de solicitudes; al elegir una se abre su detalle
+// Lista con búsqueda y filtros; al elegir una se abre su detalle, que es donde se avanza el flujo.
+// Si se llegó desde otra pantalla, puede venir con filtros puestos o con una solicitud ya abierta.
+// Si hay muchas solicitudes, los filtros de esta pantalla se mandarían al back como parámetros y la lista vendría paginada.
 export function SolicitudesPage({ apertura, onNavegar }: SolicitudesPageProps) {
   const { solicitudes } = useSolicitudes();
   const { trabajadores } = useTrabajadores();
   const { clientes } = useClientes();
   const ahora = useAhora();
   const claveDeHoy = obtenerClaveDeFecha(ahora);
-  // Filtros activos (pueden venir ya puestos desde el inicio)
+  // Filtros activos (pueden venir ya puestos desde el Inicio).
   const [filtros, setFiltros] = useState<FiltrosDeSolicitudes>(apertura.filtrosDeSolicitudes ?? FILTROS_VACIOS);
+  // Id de la solicitud abierta. Si es null se ve la lista; si trae un id se ve su detalle.
   const [idDeSolicitudSeleccionada, setIdDeSolicitudSeleccionada] = useState<string | null>(apertura.idDeSolicitud ?? null);
 
-  // Si hay una solicitud elegida, se muestra su detalle
+  // Si hay una solicitud elegida, se muestra su detalle en lugar de la lista.
   const solicitudSeleccionada = solicitudes.find((solicitud) => solicitud.id === idDeSolicitudSeleccionada);
   if (solicitudSeleccionada) {
     return <DetalleDeSolicitud key={solicitudSeleccionada.id} solicitud={solicitudSeleccionada} onVolver={() => setIdDeSolicitudSeleccionada(null)} onNavegar={onNavegar} />;
   }
 
-  // Solicitudes que pasan los filtros
+  // Solicitudes que pasan los filtros (las más nuevas primero).
   const solicitudesVisibles = filtrarSolicitudes(solicitudes, filtros, claveDeHoy, trabajadores, clientes);
 
   return (
@@ -50,9 +53,9 @@ export function SolicitudesPage({ apertura, onNavegar }: SolicitudesPageProps) {
       </div>
 
       <div className="mt-6">
-        {/* Lista de resultados */}
+        {/* Lista de resultados. Al hacer clic en una solicitud se abre su detalle. */}
         {solicitudesVisibles.length > 0 && <ListaDeSolicitudes solicitudes={solicitudesVisibles} ahora={ahora} claveDeHoy={claveDeHoy} onAbrirSolicitud={setIdDeSolicitudSeleccionada} />}
-        {/* Mensaje si no hay resultados */}
+        {/* Mensaje si ningún resultado coincide con los filtros, con botón para quitarlos. */}
         {solicitudesVisibles.length === 0 && (
           <div className="leaf relative overflow-hidden border border-dashed border-frost bg-white/70 p-12 text-center">
             <FormaOrganica className="-right-10 -top-12 h-44 w-44 text-sky/70" />

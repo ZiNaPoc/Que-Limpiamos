@@ -5,25 +5,31 @@ import { buscarServiciosActivosDelTrabajador, buscarServiciosFueraDelHorario } f
 import { TRABAJADORES_DE_DEMOSTRACION } from "./trabajadores";
 import type { DatosDeTrabajador, ResultadoDeOperacion, Solicitud, Trabajador } from "./tipos";
 
+// Un mensaje de error por campo del formulario (solo trae los campos que tienen error).
 export type ErroresDeTrabajador = Partial<Record<"nombre" | "telefono" | "correo" | "direccion" | "especialidades" | "horario", string>>;
 
 const LONGITUD_MAXIMA_DE_TEXTO = 120;
+
 const PATRON_DE_CORREO = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
+// Deja solo los números de un texto (útil para comparar teléfonos sin espacios).
 function soloDigitos(texto: string): string {
   return texto.replace(/\D/g, "");
 }
 
+// Quita espacios repetidos y los de los lados.
 function normalizarEspacios(texto: string): string {
   return texto.replace(/\s+/g, " ").trim();
 }
 
+// Escribe el teléfono como "998 123 4567".
 export function formatearTelefono(texto: string): string {
   const digitos = soloDigitos(texto);
   return `${digitos.slice(0, 3)} ${digitos.slice(3, 6)} ${digitos.slice(6)}`;
 }
 
-// Valida los datos del formulario y devuelve un error por campo
+// Revisa los datos del formulario y devuelve un error por campo. 
+// Reglas: nombre (3 a 120 letras), teléfono de 10 dígitos sin repetir, correo válido sin repetir, dirección (5 a 120), al menos una especialidad y horario válido.
 export function validarTrabajador(datos: DatosDeTrabajador, trabajadores: Trabajador[], idDelTrabajadorEditado: string | null): ErroresDeTrabajador {
   const errores: ErroresDeTrabajador = {};
   const nombre = datos.nombre.trim();
@@ -68,7 +74,7 @@ export function validarTrabajador(datos: DatosDeTrabajador, trabajadores: Trabaj
   return errores;
 }
 
-// Limpia espacios y formato antes de guardar
+// Limpia espacios y formato antes de guardar (nombre, teléfono, correo en minúsculas, días ordenados).
 function normalizarDatos(datos: DatosDeTrabajador): DatosDeTrabajador {
   return {
     nombre: normalizarEspacios(datos.nombre),
@@ -81,6 +87,7 @@ function normalizarDatos(datos: DatosDeTrabajador): DatosDeTrabajador {
   };
 }
 
+// Lo que ofrece este almacén: la lista de colaboradores y las 3 acciones para gestionarlos.
 type ValorDelContextoDeTrabajadores = {
   trabajadores: Trabajador[];
   agregarTrabajador: (datos: DatosDeTrabajador) => ResultadoDeOperacion;
@@ -90,13 +97,14 @@ type ValorDelContextoDeTrabajadores = {
 
 const TrabajadoresContext = createContext<ValorDelContextoDeTrabajadores | null>(null);
 
+// Respuesta lista para cuando el formulario tiene errores.
 const DATOS_INVALIDOS: ResultadoDeOperacion = { exito: false, mensaje: "Revisa los datos marcados antes de guardar." };
 
-// Guarda la lista de colaboradores
+// Guarda la lista de colaboradores.
 export function TrabajadoresProvider({ children }: { children: ReactNode }) {
   const [trabajadores, setTrabajadores] = useState<Trabajador[]>(TRABAJADORES_DE_DEMOSTRACION);
 
-  // Alta de un colaborador nuevo
+  // valida, crea el id siguiente (W-05, W-06...) y lo deja Activo.
   function agregarTrabajador(datos: DatosDeTrabajador): ResultadoDeOperacion {
     if (Object.keys(validarTrabajador(datos, trabajadores, null)).length > 0) {
       return DATOS_INVALIDOS;
@@ -114,7 +122,7 @@ export function TrabajadoresProvider({ children }: { children: ReactNode }) {
     return { exito: true, mensaje: `${nuevoTrabajador.nombre} se añadió como ${nuevoTrabajador.id}.` };
   }
 
-  // Edita datos; revisa que no choque con servicios activos
+  // valida los datos y revisa que el nuevo horario no deje fuera servicios ya acordados (pendientes o confirmados).
   function editarTrabajador(idDelTrabajador: string, datos: DatosDeTrabajador, solicitudes: Solicitud[]): ResultadoDeOperacion {
     const trabajadorOriginal = trabajadores.find((trabajador) => trabajador.id === idDelTrabajador);
     if (!trabajadorOriginal) {
@@ -133,7 +141,8 @@ export function TrabajadoresProvider({ children }: { children: ReactNode }) {
     return { exito: true, mensaje: `Datos de ${trabajadorActualizado.nombre} actualizados.` };
   }
 
-  // Activa o desactiva (no se desactiva con servicios activos)
+  // ACTIVAR / DESACTIVAR: un colaborador con servicios por atender no se puede desactivar.
+  // Un colaborador inactivo no recibe solicitudes ni aparece en la app del cliente.
   function cambiarEstadoDelTrabajador(idDelTrabajador: string, solicitudes: Solicitud[]): ResultadoDeOperacion {
     const trabajador = trabajadores.find((trabajadorBuscado) => trabajadorBuscado.id === idDelTrabajador);
     if (!trabajador) {
@@ -157,6 +166,7 @@ export function TrabajadoresProvider({ children }: { children: ReactNode }) {
   return <TrabajadoresContext.Provider value={{ trabajadores, agregarTrabajador, editarTrabajador, cambiarEstadoDelTrabajador }}>{children}</TrabajadoresContext.Provider>;
 }
 
+// Hook para usar los colaboradores en cualquier pantalla 
 export function useTrabajadores(): ValorDelContextoDeTrabajadores {
   const valor = useContext(TrabajadoresContext);
   if (!valor) {

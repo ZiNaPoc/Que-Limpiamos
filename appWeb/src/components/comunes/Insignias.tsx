@@ -1,7 +1,4 @@
-
 // Color de cada estado (de solicitud, INE, colaborador y servicio). Un estado que no esté aquí usa el color por defecto.
-
-const ESTILOS_POR_ESTADO: Record<string, { fondo: string; punto: string }> = {
 const ESTILOS_POR_ESTADO: Record<string, { fondo: string; punto: string }> = {
   "Solicitud enviada": { fondo: "bg-moon text-clay", punto: "bg-ochre" },
   "Asignando colaborador": { fondo: "bg-sky/70 text-storm", punto: "bg-lagoon" },
@@ -18,7 +15,7 @@ const ESTILOS_POR_ESTADO: Record<string, { fondo: string; punto: string }> = {
   Inactivo: { fondo: "bg-mist text-slate", punto: "bg-slate" },
 };
 
-// Etiqueta de color según el estado
+// Etiqueta de color según el estado.
 export function InsigniaDeEstado({ estado }: { estado: string }) {
   const estilo = ESTILOS_POR_ESTADO[estado] ?? { fondo: "bg-sky text-storm", punto: "bg-steel" };
   return (
@@ -29,7 +26,8 @@ export function InsigniaDeEstado({ estado }: { estado: string }) {
   );
 }
 
-
+// Aviso "Datos de demostración".
+// Se usa en Inicio, Solicitudes, Clientes, Catálogo, Colaboradores y Reseñas. Cuando una de esas pantallas ya lea del back, hay que quitarla de ahí.
 export function InsigniaDeDatosDeDemostracion() {
   return (
     <span title="El backend todavía no ofrece esta información: los datos son de demostración y los cambios solo se guardan en este navegador." className="cursor-help rounded-full bg-moon px-3 py-1 text-xs font-bold text-clay">
@@ -38,7 +36,7 @@ export function InsigniaDeDatosDeDemostracion() {
   );
 }
 
-// Estrellas de 1 a 5 (redondea el valor). "X de 5 estrellas".
+// Estrellas de 1 a 5. Un lector de pantalla lee "X de 5 estrellas".
 export function Puntuacion({ valor, tamano = "h-4 w-4" }: { valor: number; tamano?: string }) {
   return (
     <span className="inline-flex items-center gap-0.5" role="img" aria-label={`${valor.toFixed(1).replace(".0", "")} de 5 estrellas`}>

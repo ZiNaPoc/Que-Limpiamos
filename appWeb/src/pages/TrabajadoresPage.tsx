@@ -19,13 +19,15 @@ import { InsigniaDeDatosDeDemostracion, InsigniaDeEstado, Puntuacion } from "../
 import { TarjetaDeIndicador } from "../components/comunes/TarjetaDeIndicador";
 import { VentanaModal } from "../components/comunes/VentanasModales";
 
-// Vista de la pantalla: lista, nuevo o editar
+// Qué se ve en la pantalla: la lista, el formulario de colaborador nuevo o el formulario para editar uno (con su id).
 type VistaDeTrabajadores = { tipo: "lista" } | { tipo: "nuevo" } | { tipo: "editar"; idDelTrabajador: string };
 
+// Convierte los ids de especialidades (C-01...) en los nombres de los servicios del catálogo.
 function nombresDeEspecialidades(trabajador: Trabajador, servicios: ServicioDelCatalogo[]): string[] {
   return trabajador.especialidades.map((idDelServicio) => servicios.find((servicio) => servicio.id === idDelServicio)?.nombre ?? idDelServicio);
 }
 
+// Renglón de la ficha con ícono, etiqueta y valor.
 function DatoDelTrabajador({ icono, etiqueta, children }: { icono: NombreDeIcono; etiqueta: string; children: ReactNode }) {
   return (
     <div className="flex items-start gap-3 rounded-2xl bg-beige px-5 py-4">
@@ -46,16 +48,22 @@ type VentanaDeDetalleProps = {
   onResultado: (resultado: ResultadoDeOperacion) => void;
 };
 
-// Ficha del colaborador con sus servicios
+// Ficha del colaborador (ventana flotante): contacto, horario, especialidades, reputación, documentos, servicios por atender y últimas 3 calificaciones.
+// el colaborador + solicitudes (para reputación, estado y servicios) + catálogo (nombres de especialidades) + clientes (nombre en las calificaciones).
+// Activar o Desactivar (con confirmación), Editar, y cada servicio por atender abre su detalle en Solicitudes.
+// Desactivar no se puede si tiene servicios por atender; hay que reasignarlos o cancelarlos antes.
 function VentanaDeDetalleDelTrabajador({ trabajador, onCerrar, onEditar, onNavegar, onResultado }: VentanaDeDetalleProps) {
   const { solicitudes } = useSolicitudes();
   const { cambiarEstadoDelTrabajador } = useTrabajadores();
+  // Si se está preguntando "¿seguro?" antes de activar o desactivar.
   const [confirmandoCambioDeEstado, setConfirmandoCambioDeEstado] = useState(false);
+  // Motivo por el que no se pudo cambiar el estado (se muestra en la ficha).
   const [errorDelCambioDeEstado, setErrorDelCambioDeEstado] = useState("");
   const { servicios } = useCatalogo();
   const { clientes } = useClientes();
   const ahora = useAhora();
   const claveDeHoy = obtenerClaveDeFecha(ahora);
+  // Datos que se calculan para la ficha: reputación, estado de ahora, servicios por atender y las 3 calificaciones más recientes.
   const reputacion = calcularReputacion(solicitudes, trabajador.id);
   const estado = calcularEstadoDelTrabajador(solicitudes, trabajador, ahora);
   const serviciosActivos = obtenerServiciosActivos(solicitudes, trabajador.id);
@@ -64,9 +72,11 @@ function VentanaDeDetalleDelTrabajador({ trabajador, onCerrar, onEditar, onNaveg
     .sort((a, b) => new Date(b.calificacion!.fecha).getTime() - new Date(a.calificacion!.fecha).getTime())
     .slice(0, 3);
   const estaActivo = trabajador.estado === "Activo";
+  // Servicios por atender que impiden desactivarlo (vacío si ya está inactivo).
   const serviciosQueImpidenDesactivar = estaActivo ? buscarServiciosActivosDelTrabajador(solicitudes, trabajador.id) : [];
 
-  // Activa o desactiva al colaborador
+  // Activa o desactiva al colaborador y avisa el resultado con el aviso temporal.
+  // Aquí sale el cambio de estado. Si el colaborador tiene servicios pendientes o confirmados.
   function aplicarCambioDeEstado() {
     const resultado = cambiarEstadoDelTrabajador(trabajador.id, solicitudes);
     setConfirmandoCambioDeEstado(false);
@@ -210,6 +220,7 @@ function VentanaDeDetalleDelTrabajador({ trabajador, onCerrar, onEditar, onNaveg
   );
 }
 
+// Opciones del filtro por estado.
 const FILTROS_DE_ESTADO: ("Todos" | EstadoDelTrabajador)[] = ["Todos", "Disponible", "En servicio", "Fuera de horario", "Inactivo"];
 
 type ListaDeTrabajadoresProps = {
@@ -219,27 +230,32 @@ type ListaDeTrabajadoresProps = {
   onResultado: (resultado: ResultadoDeOperacion) => void;
 };
 
-// Lista con búsqueda y filtro por estado
+// Lista de colaboradores con búsqueda y filtro por estado (Disponible, En servicio, Fuera de horario, Inactivo).
+// colaboradores + solicitudes. Por cada uno se calcula su estado de ahora, su reputación y cuántos servicios tiene hoy.
 function ListaDeTrabajadores({ onAnadir, onEditar, onNavegar, onResultado }: ListaDeTrabajadoresProps) {
   const { trabajadores } = useTrabajadores();
   const { solicitudes } = useSolicitudes();
   const ahora = useAhora();
   const [busqueda, setBusqueda] = useState("");
   const [filtroDeEstado, setFiltroDeEstado] = useState<"Todos" | EstadoDelTrabajador>("Todos");
+  // Colaborador cuya ficha está abierta (null = cerrada).
   const [idDelTrabajadorAbierto, setIdDelTrabajadorAbierto] = useState<string | null>(null);
 
+  // Una fila por colaborador con sus datos calculados.
   const filas = trabajadores.map((trabajador) => ({
     trabajador,
     estado: calcularEstadoDelTrabajador(solicitudes, trabajador, ahora),
     reputacion: calcularReputacion(solicitudes, trabajador.id),
     serviciosDeHoy: contarServiciosDeHoy(solicitudes, trabajador.id, ahora),
   }));
+  // Filas que cumplen el filtro de estado y la búsqueda (por id, nombre o teléfono).
   const filasVisibles = filas.filter(({ trabajador, estado }) => {
     const coincideConElEstado = filtroDeEstado === "Todos" || estado === filtroDeEstado;
     const textoDelTrabajador = `${trabajador.id} ${trabajador.nombre} ${trabajador.telefono}`.toLowerCase();
     return coincideConElEstado && textoDelTrabajador.includes(busqueda.trim().toLowerCase());
   });
   const trabajadorAbierto = trabajadores.find((trabajador) => trabajador.id === idDelTrabajadorAbierto);
+  // Colaboradores a los que les falta entregar algún documento requerido.
   const sinDocumentacionCompleta = trabajadores.filter((trabajador) => DOCUMENTOS_REQUERIDOS.some((documento) => !trabajador.documentosEntregados.includes(documento))).length;
 
   return (
@@ -325,6 +341,7 @@ function ListaDeTrabajadores({ onAnadir, onEditar, onNavegar, onResultado }: Lis
   );
 }
 
+// Archivo elegido para un documento: solo se recuerdan su nombre y su tamaño.
 type DocumentoSeleccionado = { nombreDelArchivo: string; tamanoEnBytes: number };
 
 type FilaDeDocumentoProps = {
@@ -337,7 +354,8 @@ type FilaDeDocumentoProps = {
   onQuitar: () => void;
 };
 
-// Fila para subir un documento requerido
+// Fila para adjuntar un documento requerido (identificación o comprobante de domicilio).
+// Al elegir un archivo primero se revisa (tipo, tamaño y contenido). Si ya estaba entregado no se vuelve a pedir.
 function FilaDeDocumento({ documento, yaEntregado, seleccionado, error, estaRevisando, onSeleccionar, onQuitar }: FilaDeDocumentoProps) {
   const selectorRef = useRef<HTMLInputElement>(null);
   const idDelError = `documento-${documento.replace(/\s+/g, "-")}-error`;
@@ -386,7 +404,7 @@ function FilaDeDocumento({ documento, yaEntregado, seleccionado, error, estaRevi
   );
 }
 
-// Selector de días y horas de trabajo
+// Selector de días y horas de trabajo. Es el horario que ve el cliente en la app; solo se le asignan servicios que empiecen dentro de él.
 function SelectorDeHorario({ horario, error, onCambiar }: { horario: HorarioDeTrabajo; error?: string; onCambiar: (horario: HorarioDeTrabajo) => void }) {
   function alternarDia(numero: number) {
     const dias = horario.dias.includes(numero) ? horario.dias.filter((dia) => dia !== numero) : [...horario.dias, numero];
@@ -430,6 +448,7 @@ function SelectorDeHorario({ horario, error, onCambiar }: { horario: HorarioDeTr
   );
 }
 
+// Formulario en blanco para un colaborador nuevo (con el horario predeterminado).
 const DATOS_DE_TRABAJADOR_VACIOS: DatosDeTrabajador = { nombre: "", telefono: "", correo: "", direccion: "", especialidades: [], horario: HORARIO_PREDETERMINADO, documentosEntregados: [] };
 
 type FormularioDeTrabajadorProps = {
@@ -438,31 +457,40 @@ type FormularioDeTrabajadorProps = {
   onTerminar: (resultado: ResultadoDeOperacion) => void;
 };
 
-// Formulario para dar de alta o editar un colaborador
+// Formulario para dar de alta o editar un colaborador: nombre, teléfono, correo, dirección, especialidades, horario y documentos.
+// Al guardar: se valida; si hay errores se marcan; si todo está bien se llama a agregarTrabajador o editarTrabajador.
+// Si se edita, el nuevo horario no puede dejar fuera servicios ya acordados.
 function FormularioDeTrabajador({ trabajadorEditado, onCancelar, onTerminar }: FormularioDeTrabajadorProps) {
   const { trabajadores, agregarTrabajador, editarTrabajador } = useTrabajadores();
   const { solicitudes } = useSolicitudes();
   const { servicios } = useCatalogo();
+  // Lo que se está escribiendo. Si se edita, empieza con los datos actuales.
   const [datos, setDatos] = useState<DatosDeTrabajador>(() => (trabajadorEditado ? { ...trabajadorEditado } : DATOS_DE_TRABAJADOR_VACIOS));
+  // Errores por campo, error general y estado de los documentos (elegidos, con error y el que se está revisando).
   const [errores, setErrores] = useState<ErroresDeTrabajador>({});
   const [errorGeneral, setErrorGeneral] = useState("");
   const [documentosSeleccionados, setDocumentosSeleccionados] = useState<Record<string, DocumentoSeleccionado>>({});
   const [erroresDeDocumentos, setErroresDeDocumentos] = useState<Record<string, string>>({});
   const [documentoEnRevision, setDocumentoEnRevision] = useState<string | null>(null);
 
+  // Documentos que ya estaban entregados (al editar).
   const documentosYaEntregados = trabajadorEditado ? trabajadorEditado.documentosEntregados : [];
+  // Servicios que se pueden elegir como especialidad: los activos y los que el colaborador ya tiene aunque estén inactivos.
   const serviciosParaEspecialidad = servicios.filter((servicio) => servicio.estado === "Activo" || datos.especialidades.includes(servicio.id));
 
+  // Guarda lo que se va escribiendo en un campo de texto.
   function cambiarCampo(campo: "nombre" | "telefono" | "correo" | "direccion", valor: string) {
     setDatos({ ...datos, [campo]: valor });
   }
 
+  // Agrega o quita una especialidad.
   function alternarEspecialidad(idDelServicio: string) {
     const especialidades = datos.especialidades.includes(idDelServicio) ? datos.especialidades.filter((id) => id !== idDelServicio) : [...datos.especialidades, idDelServicio];
     setDatos({ ...datos, especialidades });
   }
 
-  // Valida el archivo elegido antes de aceptarlo
+  // Valida el archivo elegido antes de aceptarlo.
+  // Aquí solo se guardan el nombre y el tamaño del archivo. 
   async function seleccionarDocumento(documento: string, archivo: File) {
     setDocumentoEnRevision(documento);
     const error = await validarArchivo(archivo, TIPOS_DE_DOCUMENTO_PERMITIDOS);
@@ -475,6 +503,7 @@ function FormularioDeTrabajador({ trabajadorEditado, onCancelar, onTerminar }: F
     setDocumentosSeleccionados((anteriores) => ({ ...anteriores, [documento]: { nombreDelArchivo: archivo.name, tamanoEnBytes: archivo.size } }));
   }
 
+  // Quita el archivo elegido de un documento.
   function quitarDocumento(documento: string) {
     setDocumentosSeleccionados((anteriores) => {
       const restantes = { ...anteriores };
@@ -483,7 +512,8 @@ function FormularioDeTrabajador({ trabajadorEditado, onCancelar, onTerminar }: F
     });
   }
 
-  // Valida y guarda; si hay errores se marcan en el formulario
+  // Valida y guarda; si hay errores se marcan en el formulario. Un documento cuenta como entregado si ya lo estaba o si se acaba de elegir.
+  // Aquí sale la petición de alta o de edición. Si hay documentos nuevos, se enviarían junto con los datos como multipart/form-data.
   function handleEnviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     const datosCompletos: DatosDeTrabajador = {
@@ -505,6 +535,7 @@ function FormularioDeTrabajador({ trabajadorEditado, onCancelar, onTerminar }: F
     onTerminar(resultado);
   }
 
+  // Marca el campo con error para lectores de pantalla (aria-invalid) y lo enlaza con su mensaje.
   function propiedadesDeError(campo: keyof ErroresDeTrabajador) {
     return {
       "aria-invalid": Boolean(errores[campo]),
@@ -604,17 +635,20 @@ function FormularioDeTrabajador({ trabajadorEditado, onCancelar, onTerminar }: F
   );
 }
 
-// Colaboradores: lista y formulario
+// lista - clic en un colaborador abre su ficha - desde ahí se activa, desactiva o se edita. "Añadir colaborador" abre el formulario.
+// Cada guardado devuelve un ResultadoDeOperacion que se muestra en el aviso temporal; si salió bien, se vuelve a la lista.
 export function TrabajadoresPage({ onNavegar }: { onNavegar: Navegar }) {
   const { trabajadores } = useTrabajadores();
+  // Qué se ve: la lista o un formulario.
   const [vista, setVista] = useState<VistaDeTrabajadores>({ tipo: "lista" });
+  // Resultado de la última acción; mientras tiene valor se muestra el aviso temporal (se quita solo).
   const [aviso, setAviso] = useState<ResultadoDeOperacion | null>(null);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [vista]);
 
-  // Muestra el aviso y vuelve a la lista si salió bien
+  // Muestra el aviso y vuelve a la lista si salió bien. Si falló, se queda en el formulario.
   function terminarFormulario(resultado: ResultadoDeOperacion) {
     setAviso(resultado);
     if (resultado.exito) {
@@ -622,7 +656,7 @@ export function TrabajadoresPage({ onNavegar }: { onNavegar: Navegar }) {
     }
   }
 
-  // Elige qué mostrar: lista o formulario
+  // Elige qué mostrar: la lista o el formulario.
   let contenido = <ListaDeTrabajadores onAnadir={() => setVista({ tipo: "nuevo" })} onEditar={(idDelTrabajador) => setVista({ tipo: "editar", idDelTrabajador })} onNavegar={onNavegar} onResultado={setAviso} />;
   if (vista.tipo === "nuevo") {
     contenido = <FormularioDeTrabajador trabajadorEditado={null} onCancelar={() => setVista({ tipo: "lista" })} onTerminar={terminarFormulario} />;
@@ -639,6 +673,7 @@ export function TrabajadoresPage({ onNavegar }: { onNavegar: Navegar }) {
       <div key={vista.tipo} className="fade">
         {contenido}
       </div>
+      {/* Aviso temporal con el resultado de guardar, activar o desactivar. */}
       {aviso && <AvisoTemporal aviso={aviso} onTerminar={() => setAviso(null)} />}
     </>
   );
