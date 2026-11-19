@@ -1,8 +1,8 @@
 import { NextFunction, Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt, { SignOptions } from "jsonwebtoken";
-import { prisma } from "../config/prisma";
 import { AppError } from "../errors/AppError";
+import * as authRepository from "../repository/auth.repository";
 
 const esProdu = process.env.NODE_ENV === "production";
 
@@ -35,9 +35,7 @@ export async function loginAdmin(
       throw new AppError(400, "Hace falta la contraseña");
     }
 
-    const usuario = await prisma.usuarios.findUnique({
-      where: { correo },
-    });
+    const usuario = await authRepository.buscarUsuarioPorCorreo(correo);
 
     if (!usuario) {
       throw new AppError(401, "Credenciales invalidas");
