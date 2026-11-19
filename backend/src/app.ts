@@ -3,7 +3,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-
+import solicitudesRoutes from "./routes/solicitudes.routes";
 import authRoutes from "./routes/auth.routes";
 
 import {
@@ -35,5 +35,6 @@ app.use("/api/auth", authRoutes);
 app.use(rutaNoEncontrada);
 app.use(manejarErrores);
 
+app.use("/api/admin/solicitudes", solicitudesRoutes);
 
 export default app;
