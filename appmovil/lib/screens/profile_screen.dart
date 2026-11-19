@@ -23,7 +23,7 @@ class _PerfilScreenState extends State<PerfilScreen> {
   final TextEditingController correo =
       TextEditingController(text: 'abcd@ejemplo.com');
 
-  String nombreMostrado = 'Uusario';
+  String nombreMostrado = 'Usario';
 
   @override
   void dispose() {
