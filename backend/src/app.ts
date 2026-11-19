@@ -11,6 +11,10 @@ import {
     manejarErrores,
 } from "./middleware/error.middleware";
 
+const origenesPermitidos = (process.env.CORS_ORIGINS ?? "http://localhost:5173" )
+    .split(",")
+    .map((o) => o.trim());
+
 const app = express();
 
 app.use(express.json());
@@ -19,7 +23,7 @@ app.get("/health", (_req, res) => res.json({ ok: true }));
 
 app.use(
     cors({
-        origin: 'http://localhost:5173',
+        origin: origenesPermitidos,
         credentials: true,
     }),
 );
