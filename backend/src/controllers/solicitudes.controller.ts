@@ -20,9 +20,37 @@ export async function obtenerSolicitudes(
   try {
     const solicitudes = await solicitudesRepository.obtenerTodas();
 
-    const resultado = solicitudes.map((solicitud) => ({
-      id: String(solicitud.id),
+    const estadosFront = {
+      PENDIENTE: "Pendiente",
+      CONFIRMADO: "Confirmado",
+      EN_PROCESO: "En proceso",
+      REALIZADO: "Realizado",
+      CANCELADO: "Cancelado",
+      RECHAZADO: "Rechazado"
+    } as const;
 
+    const resultado = solicitudes.map((solicitud) => ({
+
+      //IDS
+      id: String(solicitud.id),
+      idCliente: String(solicitud.cliente_id),
+      idServicio: String(solicitud.servicio_id),
+      idTrabajador: solicitud.trabajador_id === null
+      ? null
+      : String(solicitud.trabajador_id),
+
+      //DATA DE LA SOLICITUD
+      servicio: solicitud.servicios.nombre,
+      direccion: solicitud.direccion_servicio,
+      estado: solicitud.estado,
+      precioEstimado: Number(solicitud.precio_estimado),
+
+      //FECHAS
+      fechaProgramada: solicitud.fecha_hora_programada.toISOString,
+      fechaCreacion: solicitud.created_at.toISOString(),
+      fechaActualizacion: solicitud.updated_at.toISOString(),
+
+      //DATA DE INVOLUCRADOS
       cliente: {
         id: String(solicitud.usuarios.id),
         nombre: solicitud.usuarios.nombre_completo,
@@ -30,53 +58,11 @@ export async function obtenerSolicitudes(
         telefono: solicitud.usuarios.telefono,
       },
 
-      servicio: {
-        id: String(solicitud.servicios.id),
-        nombre: solicitud.servicios.nombre,
-        descripcion: solicitud.servicios.descripcion,
-        precioBase: Number(solicitud.servicios.precio_base),
-        duracionEstimadaMin: solicitud.servicios.duracion_estimada_min,
-        estado: solicitud.servicios.estado,
-      },
-
       trabajador: solicitud.trabajadores
         ? {
             id: String(solicitud.trabajadores.id),
             nombre: solicitud.trabajadores.nombre_completo,
-            telefono: solicitud.trabajadores.telefono,
-            correo: solicitud.trabajadores.correo,
             estado: solicitud.trabajadores.estado,
-          }
-        : null,
-
-      fechaProgramada: solicitud.fecha_hora_programada.toISOString(),
-
-      direccion: solicitud.direccion_servicio,
-
-      precioEstimado: Number(solicitud.precio_estimado),
-
-      precioFinal:
-        solicitud.precio_final === null ? null : Number(solicitud.precio_final),
-
-      estado: solicitud.estado,
-
-      fechaCreacion: solicitud.created_at.toISOString(),
-
-      fechaActualizacion: solicitud.updated_at.toISOString(),
-
-      evidencias: solicitud.evidencias_solicitud.map((evidencia) => ({
-        id: String(evidencia.id),
-        url: evidencia.archivo_url,
-        descripcion: evidencia.descripcion,
-        fechaIncorporacion: evidencia.created_at.toISOString(),
-      })),
-
-      resena: solicitud.resenas
-        ? {
-            puntuacionServicio: solicitud.resenas.puntuacion_servicio,
-            puntuacionTrabajador: solicitud.resenas.puntuacion_trabajador,
-            comentario: solicitud.resenas.comentario,
-            fecha: solicitud.resenas.created_at.toISOString(),
           }
         : null,
     }));
