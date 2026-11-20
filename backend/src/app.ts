@@ -19,6 +19,7 @@ const app = express();
 
 app.use(express.json());
 
+//PRUEBA DE RENDER
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
 app.use(
@@ -32,9 +33,8 @@ app.use(cookieParser());
 
 app.use("/api/auth", authRoutes);
 
-app.use(rutaNoEncontrada);
-app.use(manejarErrores);
-
 app.use("/api/admin/solicitudes", solicitudesRoutes);
 
+app.use(rutaNoEncontrada);
+app.use(manejarErrores);
 export default app;
