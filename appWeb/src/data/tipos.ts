@@ -50,11 +50,29 @@ export type Cliente = {
 };
 
 // Estado interno de la solicitud. Avanza: Pendiente - Confirmado - Realizado; en cualquier momento antes de finalizar puede pasar a Cancelado.
-export type EstadoDeSolicitud = "Pendiente" | "Confirmado" | "Realizado" | "Cancelado";
+export type EstadoDeSolicitud = 
+"Pendiente" | 
+"Confirmado" | 
+"Realizado" | 
+"Cancelado" |
+"En proceso" |
+"Rechazado";
 
 // Etapa que ve el administrador. No se guarda: se calcula con obtenerEtapa() usando el estado y si ya hay colaborador.
 // Pendiente sin colaborador = "Solicitud enviada"; Pendiente con colaborador = "Asignando colaborador".
-export type EtapaDeSolicitud = "Solicitud enviada" | "Asignando colaborador" | "Servicio confirmado" | "Servicio finalizado" | "Cancelada";
+export type EtapaDeSolicitud = 
+"Solicitud enviada" 
+| "Asignando colaborador" 
+| "Servicio confirmado" 
+| "Servicio en proceso"
+| "Servicio finalizado" 
+| "Cancelada"
+| "Solicitud rechazada";
+
+export type FiltroDeEtapa = 
+|   "todas" 
+| "activas" 
+| EtapaDeSolicitud;
 
 // Quién eligió al colaborador: el Cliente (manual) o el sistema (Automática). 
 export type ModoDeEleccionDelColaborador = "Cliente" | "Automática";
@@ -144,20 +162,10 @@ export type ServicioDelCatalogo = {
 // Los datos que se escriben en el formulario de servicio (sin id ni estado).
 export type DatosDeServicio = Omit<ServicioDelCatalogo, "id" | "estado">;
 
-export type FiltroDeEtapa = "todas" | "activas" | EtapaDeSolicitud;
+
 export type FiltroDeFechaDelTrabajo = "todas" | "hoy" | "manana" | "despues" | "anteriores";
 export type FiltroDeFechaDeSolicitud = "todas" | "hoy" | "7dias";
 export type FiltroDeEleccion = "todas" | ModoDeEleccionDelColaborador;
-
-// Filtros de la pantalla Solicitudes. Se aplican en el navegador sobre la lista completa (ver filtrarSolicitudes).
-// busqueda: texto libre; etapa: seguimiento; fechaDelTrabajo: cuándo es el servicio; fechaDeSolicitud: cuándo se pidió; eleccion: manual o automática.
-export type FiltrosDeSolicitudes = {
-  busqueda: string;
-  etapa: FiltroDeEtapa;
-  fechaDelTrabajo: FiltroDeFechaDelTrabajo;
-  fechaDeSolicitud: FiltroDeFechaDeSolicitud;
-  eleccion: FiltroDeEleccion;
-};
 
 export type FiltroDeVerificacion = "Todos" | EstadoDeVerificacion;
 
@@ -185,3 +193,39 @@ export type Sesion = {
   correo: string;
   rol?: string;
 };
+
+export type SolicitudListado = {
+  id: string;
+  idCliente: string;
+  idServicio: string;
+  idTrabajador: string | null;
+
+  servicio:string;
+  direccion: string;
+  estado: EstadoDeSolicitud;
+
+  fechaCreacion:string;
+  fechaProgramada:string;
+
+  precioReferencia: number;
+
+  cliente: {
+    id: string;
+    nombre: string;
+    correo:string;
+    telefono:string|null;
+  };
+
+  trabajador: {
+    id:string;
+    nombre:string;
+    estado: 'ACTIVO' | 'INACTIVO';
+  } | null;
+};
+
+export type FiltrosDeSolicitudes ={
+  busqueda:string;
+  etapa:FiltroDeEtapa;
+  fechaDelTrabajo: FiltroDeFechaDelTrabajo;
+  fechaDeSolicitud: FiltroDeFechaDeSolicitud;
+}

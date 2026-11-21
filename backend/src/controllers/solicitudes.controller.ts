@@ -8,9 +8,17 @@ function obtenerId(valor: string): number {
   if (!Number.isSafeInteger(id) || id <= 0) {
     throw new AppError(400, "El ID de la solicitud no es valido");
   }
-
   return id;
 }
+
+const estadosFront = {
+  PENDIENTE: "Pendiente",
+  CONFIRMADO: "Confirmado",
+  EN_PROCESO: "En proceso",
+  REALIZADO: "Realizado",
+  CANCELADO: "Cancelado",
+  RECHAZADO: "Rechazado",
+} as const;
 
 export async function obtenerSolicitudes(
   _req: Request,
@@ -20,24 +28,15 @@ export async function obtenerSolicitudes(
   try {
     const solicitudes = await solicitudesRepository.obtenerTodas();
 
-    const estadosFront = {
-      PENDIENTE: "Pendiente",
-      CONFIRMADO: "Confirmado",
-      EN_PROCESO: "En proceso",
-      REALIZADO: "Realizado",
-      CANCELADO: "Cancelado",
-      RECHAZADO: "Rechazado"
-    } as const;
-
     const resultado = solicitudes.map((solicitud) => ({
-
       //IDS
       id: String(solicitud.id),
       idCliente: String(solicitud.cliente_id),
       idServicio: String(solicitud.servicio_id),
-      idTrabajador: solicitud.trabajador_id === null
-      ? null
-      : String(solicitud.trabajador_id),
+      idTrabajador:
+        solicitud.trabajador_id === null
+          ? null
+          : String(solicitud.trabajador_id),
 
       //DATA DE LA SOLICITUD
       servicio: solicitud.servicios.nombre,
@@ -82,10 +81,11 @@ export async function cambiarTrabajadorAsignado(
   next: NextFunction,
 ) {
   try {
-    const idSolicitud = obtenerId(
-      Array.isArray(req.params.id) ? req.params.id[0] : req.params.id,
-    );
+    const idParam = Array.isArray(req.params.id)
+      ? req.params.id[0]
+      : req.params.id;
 
+    const idSolicitud = obtenerId(idParam);
     const valor = req.body?.trabajadorId;
 
     let trabajadorId: number | null = null;
@@ -93,43 +93,41 @@ export async function cambiarTrabajadorAsignado(
     if (valor !== null) {
       trabajadorId = Number(valor);
 
+      if (valor !== null) {
+        trabajadorId = Number(valor);
+      }
+
       if (!Number.isSafeInteger(trabajadorId) || trabajadorId <= 0) {
-        throw new AppError(400, "El ID del trabajador no es valido.");
+        throw new AppError(400, "El ID del trabajador no es valido");
       }
     }
 
     const solicitud = await solicitudesRepository.buscarPorId(idSolicitud);
 
-    if (!solicitud) {
-      throw new AppError(404, "No se encontro la solicitud");
+    if(!solicitud) {
+      throw new AppError(404, 'No se encontro la solicitud');
     }
 
-    if (solicitud.estado !== "PENDIENTE") {
-      throw new AppError(
-        409,
-        "Solo se puede asignar trabajadores a solicitudes pendientes",
-      );
+    if(solicitud.estado !== 'PENDIENTE'){
+      throw new AppError(409, 'Solo se pueden asignar trabajadores a solicitudes pendientes');
     }
 
-    if (trabajadorId !== null) {
+    if(trabajadorId !== null) {
       const trabajador = await solicitudesRepository.buscarTrabajadorConServicio(
         trabajadorId,
-        solicitud.servicio_id,
+        solicitud.servicio_id
       );
 
-      if (!trabajador) {
-        throw new AppError(404, "No se encontro el trabajador");
+      if(!trabajador) {
+        throw new AppError(404, 'No se encontro el trabajador');
       }
 
-      if (trabajador.estado !== "ACTIVO") {
-        throw new AppError(409, "El trabajador no esta activo");
+      if(trabajador.estado !== 'ACTIVO') {
+        throw new AppError(409, 'El trabajador no esta activo');
       }
 
-      if (trabajador.trabajador_servicios.length === 0) {
-        throw new AppError(
-          400,
-          "El trabajador no tiene asignada la especialidad de este servicio",
-        );
+      if(trabajador.trabajador_servicios.length === 0) {
+        throw new AppError(400, 'El trabajador no tiene asignada la especialidad de este servicio');
       }
     }
 
@@ -139,16 +137,13 @@ export async function cambiarTrabajadorAsignado(
     );
 
     return res.status(200).json({
-      mensaje:
-        trabajadorId === null
-          ? "Se quito la asignacion del trabajador"
-          : "Trabajador asignado correctamente",
+      mensaje: 'Asignacion actualizada correctamente',
       solicitudId: String(actualizada.id),
-      trabajadorId:
-        actualizada.trabajador_id === null
-          ? null
-          : String(actualizada.trabajador_id),
+      trabajadorId: actualizada.trabajador_id === null
+      ? null
+      : String(actualizada.trabajador_id),
     });
+
   } catch (error) {
     next(error);
   }

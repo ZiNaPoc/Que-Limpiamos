@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useAhora } from "../../hooks/useAhora";
 import { buscarCliente, useClientes } from "../../data/ClientesContext";
-import { useSolicitudes } from "../../data/SolicitudesContext";
+import { useSolicitudes } from "../../hooks/useSolicitudes";
 import { useTrabajadores } from "../../data/TrabajadoresContext";
 import { buscarTrabajador } from "../../data/trabajadores";
 import type { EtapaDeSolicitud, Navegar, ResultadoDeOperacion, Solicitud } from "../../data/tipos";

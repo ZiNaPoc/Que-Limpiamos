@@ -5,16 +5,22 @@ import { PiePagina } from "./components/PiePagina";
 import { DashboardPage } from "./pages/DashboardPage";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
-import { borrarSesion, guardarSesion, leerSesionGuardada } from "./utils/sesion";
+import {
+  borrarSesion,
+  guardarSesion,
+  leerSesionGuardada,
+} from "./utils/sesion";
 
-// App decide qué pantalla se ve. 
+// App decide qué pantalla se ve.
 
 type PaginaActual = "landing" | "login" | "dashboard";
 
 export default function App() {
   // Datos de quien inició sesión (id, nombre, correo, rol). Se leen de sessionStorage al abrir.
   // Si es null no hay sesión y el panel no se puede abrir.
-  const [sesionActual, setSesionActual] = useState<Sesion | null>(leerSesionGuardada);
+  const [sesionActual, setSesionActual] = useState<Sesion | null>(
+    leerSesionGuardada,
+  );
   // Pantalla visible ahora: landing, login o dashboard.
   const [paginaActual, setPaginaActual] = useState<PaginaActual>("landing");
 
@@ -60,7 +66,13 @@ export default function App() {
 
   // El panel solo se muestra si hay sesión. El panel ocupa toda la pantalla, por eso no lleva la barra ni el pie públicos.
   if (paginaActual === "dashboard" && sesionActual) {
-    return <DashboardPage sesion={sesionActual} onCerrarSesion={handleCerrarSesion} onIrAQuienesSomos={() => irALaLanding("quienes-somos")} />;
+    return (
+      <DashboardPage
+        sesion={sesionActual}
+        onCerrarSesion={handleCerrarSesion}
+        onIrAQuienesSomos={() => irALaLanding("quienes-somos")}
+      />
+    );
   }
 
   // El botón de la barra dice "Mi panel" si hay sesión y "Acceder" si no.
@@ -71,10 +83,23 @@ export default function App() {
 
   return (
     <>
-      <BarraDeNavegacion onAcceder={abrirPanelOAcceso} onIrASeccion={irALaLanding} textoDelBotonDeAcceso={textoDelBotonDeAcceso} estaEnLaLanding={paginaActual === "landing"} laPaginaDeAccesoEstaActiva={paginaActual === "login"} />
+      <BarraDeNavegacion
+        onAcceder={abrirPanelOAcceso}
+        onIrASeccion={irALaLanding}
+        textoDelBotonDeAcceso={textoDelBotonDeAcceso}
+        estaEnLaLanding={paginaActual === "landing"}
+        laPaginaDeAccesoEstaActiva={paginaActual === "login"}
+      />
       {/* Solo se muestra una página pública a la vez: landing o login. La barra y el pie se quedan siempre. */}
-      {paginaActual === "landing" && <LandingPage onAcceder={abrirPanelOAcceso} onIrASeccion={irALaLanding} />}
-      {paginaActual === "login" && <LoginPage onAccesoExitoso={handleAccesoExitoso} />}
+      {paginaActual === "landing" && (
+        <LandingPage
+          onAcceder={abrirPanelOAcceso}
+          onIrASeccion={irALaLanding}
+        />
+      )}
+      {paginaActual === "login" && (
+        <LoginPage onAccesoExitoso={handleAccesoExitoso} />
+      )}
       <PiePagina onIrASeccion={irALaLanding} onAcceder={abrirPanelOAcceso} />
     </>
   );

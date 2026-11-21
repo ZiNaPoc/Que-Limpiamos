@@ -8,7 +8,7 @@ import {
   type ErroresDelServicio,
 } from "../data/CatalogoContext";
 import type { EstadoDeServicio, ResultadoDeOperacion, ServicioDelCatalogo } from "../data/tipos";
-import { useSolicitudes } from "../data/SolicitudesContext";
+import { useSolicitudes } from "../hooks/useSolicitudes";
 import { useTrabajadores } from "../data/TrabajadoresContext";
 import { formatearPrecio, normalizarTexto } from "../utils/formato";
 import { AvisoTemporal } from "../components/comunes/AvisoTemporal";
