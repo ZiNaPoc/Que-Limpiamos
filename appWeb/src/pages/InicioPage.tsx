@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useAhora } from "../hooks/useAhora";
 import { nombreDelCliente, useClientes } from "../data/ClientesContext";
-import { useSolicitudes } from "../data/SolicitudesContext";
+import { useSolicitudes } from "../hooks/useSolicitudes";
 import { useTrabajadores } from "../data/TrabajadoresContext";
 import { buscarTrabajador } from "../data/trabajadores";
 import type { Navegar, Sesion, Solicitud } from "../data/tipos";

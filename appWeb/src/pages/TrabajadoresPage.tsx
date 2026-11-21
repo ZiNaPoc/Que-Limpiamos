@@ -2,13 +2,22 @@ import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type Rea
 import { useAhora } from "../hooks/useAhora";
 import { useCatalogo } from "../data/CatalogoContext";
 import { buscarCliente, useClientes } from "../data/ClientesContext";
-import { useSolicitudes } from "../data/SolicitudesContext";
+import { useSolicitudes } from "../hooks/useSolicitudes";
 import { useTrabajadores, validarTrabajador, type ErroresDeTrabajador } from "../data/TrabajadoresContext";
 import { buscarServiciosActivosDelTrabajador } from "../utils/reglasDeSolicitudes";
 import { DOCUMENTOS_REQUERIDOS, HORARIO_PREDETERMINADO } from "../data/trabajadores";
 import type { DatosDeTrabajador, HorarioDeTrabajo, Navegar, ResultadoDeOperacion, ServicioDelCatalogo, Trabajador } from "../data/tipos";
 import { describirTiposPermitidos, formatearTamanoDeArchivo, TAMANO_MAXIMO_DE_ARCHIVO_EN_BYTES, TIPOS_DE_DOCUMENTO_PERMITIDOS, validarArchivo } from "../utils/archivos";
-import { calcularEstadoDelTrabajador, calcularReputacion, contarServiciosDeHoy, describirReputacion, obtenerServiciosActivos, type EstadoDelTrabajador } from "../utils/consultasDeTrabajadores";
+
+import { 
+  calcularEstadoDelTrabajador, 
+  //calcularReputacion,  por lo mismo de que hace falta lo del fuckin coso este que se me olvido xd
+  contarServiciosDeHoy, 
+  describirReputacion, 
+  obtenerServiciosActivos, 
+  type EstadoDelTrabajador 
+} from "../utils/consultasDeTrabajadores";
+
 import { obtenerClaveDeFecha } from "../utils/fechas";
 import { describirHorario, formatearFechaNumerica } from "../utils/formato";
 import { DIAS_DE_LA_SEMANA, describirHorarioDeTrabajo } from "../utils/horarios";
@@ -64,13 +73,17 @@ function VentanaDeDetalleDelTrabajador({ trabajador, onCerrar, onEditar, onNaveg
   const ahora = useAhora();
   const claveDeHoy = obtenerClaveDeFecha(ahora);
   // Datos que se calculan para la ficha: reputación, estado de ahora, servicios por atender y las 3 calificaciones más recientes.
-  const reputacion = calcularReputacion(solicitudes, trabajador.id);
+  //const reputacion = calcularReputacion(solicitudes:, trabajador.id);
   const estado = calcularEstadoDelTrabajador(solicitudes, trabajador, ahora);
   const serviciosActivos = obtenerServiciosActivos(solicitudes, trabajador.id);
+
+  /*
   const calificaciones = solicitudes
-    .filter((solicitud) => solicitud.idDelTrabajador === trabajador.id && solicitud.calificacion)
-    .sort((a, b) => new Date(b.calificacion!.fecha).getTime() - new Date(a.calificacion!.fecha).getTime())
+    .filter((solicitud) => solicitud.idTrabajador === trabajador.id && solicitud.calificacion)
+    //.sort((a, b) => new Date(b.calificacion!.fecha).getTime() - new Date(a.calificacion!.fecha).getTime())
     .slice(0, 3);
+*/
+
   const estaActivo = trabajador.estado === "Activo";
   // Servicios por atender que impiden desactivarlo (vacío si ya está inactivo).
   const serviciosQueImpidenDesactivar = estaActivo ? buscarServiciosActivosDelTrabajador(solicitudes, trabajador.id) : [];

@@ -1,6 +1,10 @@
+//ESPERANDO RESOLUCION DE CALIFICACION EN TIPOS SolicitudListado 
+//CONSULTAR AL TEAM
+
+/*
 import { useState } from "react";
 import { useClientes, nombreDelCliente } from "../data/ClientesContext";
-import { useSolicitudes } from "../data/SolicitudesContext";
+import { useSolicitudes } from "../hooks/useSolicitudes";
 import { useTrabajadores } from "../data/TrabajadoresContext";
 import { buscarTrabajador } from "../data/trabajadores";
 import type { Navegar } from "../data/tipos";
@@ -164,3 +168,4 @@ export function ResenasPage({ onNavegar }: { onNavegar: Navegar }) {
     </div>
   );
 }
+*/
